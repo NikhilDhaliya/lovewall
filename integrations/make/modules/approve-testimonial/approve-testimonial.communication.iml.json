@@ -1,0 +1,7 @@
+{
+  "url": "/testimonials/{{encodeURL(parameters.id)}}/approve",
+  "method": "POST",
+  "response": {
+    "output": "{{body.data}}"
+  }
+}

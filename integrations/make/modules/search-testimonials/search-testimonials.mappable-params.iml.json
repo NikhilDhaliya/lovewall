@@ -1,0 +1,69 @@
+[
+  {
+    "name": "status",
+    "type": "select",
+    "label": "Status",
+    "default": "all",
+    "options": [
+      {
+        "label": "New (inbox)",
+        "value": "new"
+      },
+      {
+        "label": "Approved (on walls)",
+        "value": "approved"
+      },
+      {
+        "label": "Hidden",
+        "value": "hidden"
+      },
+      {
+        "label": "All",
+        "value": "all"
+      }
+    ]
+  },
+  {
+    "name": "q",
+    "type": "text",
+    "label": "Search text"
+  },
+  {
+    "name": "tag",
+    "type": "text",
+    "label": "Tag"
+  },
+  {
+    "name": "source",
+    "type": "text",
+    "label": "Source"
+  },
+  {
+    "name": "rating",
+    "type": "uinteger",
+    "label": "Rating",
+    "validate": {
+      "min": 1,
+      "max": 5
+    }
+  },
+  {
+    "name": "featured",
+    "type": "select",
+    "label": "Featured only",
+    "options": [
+      {
+        "label": "Yes",
+        "value": "true"
+      }
+    ]
+  },
+  {
+    "name": "limit",
+    "type": "uinteger",
+    "label": "Limit",
+    "required": true,
+    "default": 10,
+    "help": "Most results to return, newest first."
+  }
+]

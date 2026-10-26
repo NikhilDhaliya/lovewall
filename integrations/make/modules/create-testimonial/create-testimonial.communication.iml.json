@@ -1,0 +1,8 @@
+{
+  "url": "/testimonials",
+  "method": "POST",
+  "body": "{{parameters}}",
+  "response": {
+    "output": "{{body.data}}"
+  }
+}

@@ -1,0 +1,143 @@
+// Built-in texts of the public collect page, its emails and the unsubscribe page. Every other language file is
+// typed as CollectDict, so a missing or extra key fails the type check. {name} placeholders are filled in by t().
+export const en = {
+  // Page
+  metaTitle: "Share your experience with {space}",
+  defaultTitle: "What do you love about {space}?",
+  poweredBy: "Powered by Lovewall",
+  optional: "optional",
+  stepOf: "Step {n} of {total}",
+  next: "Next",
+  back: "Back",
+  send: "Send",
+  yes: "Yes",
+  no: "No",
+
+  // Testimonial fields
+  testimonialType: "Testimonial type",
+  write: "Write",
+  video: "Video",
+  rating: "Rating",
+  oneStar: "1 star",
+  stars: "{n} stars",
+  yourTestimonial: "Your testimonial",
+  fewWords: "A few words (optional)",
+  yourName: "Your name",
+  jobTitle: "Title",
+  company: "Company",
+  email: "Email",
+  website: "Website",
+  addPhoto: "Add a photo",
+  changePhoto: "Change photo",
+  agree: "I agree to share this publicly",
+  consent: "{space} may share this publicly, with my name.",
+  consentPhoto: "{space} may share this publicly, with my name and photo.",
+
+  // Errors
+  errName: "Add your name.",
+  errText: "Write a few words.",
+  errVideo: "Record or upload a video.",
+  errRating: "Pick a rating.",
+  errConsent: "Tick the box to agree.",
+  errRequired: "Answer this question.",
+  errEmail: "Enter a valid email.",
+  errUrl: "Enter a valid link.",
+  errScore: "Pick a score.",
+  errPhoto: "Use a JPG or PNG photo.",
+  errTooMany: "Too many tries. Try again later.",
+  errSend: "Couldn’t send. Try again.",
+  errExpired: "This form expired. Reload the page and try again.",
+
+  // Sending
+  uploadingPhoto: "Uploading photo",
+  uploading: "Uploading {pct}%",
+  sending: "Sending",
+
+  // NPS survey
+  npsLow: "Not likely",
+  npsHigh: "Very likely",
+  npsFollowup: "What’s the main reason for your score?",
+  npsAsk: "Glad to hear it. Would you write a short testimonial?",
+  npsAskYes: "Write one",
+  npsAskNo: "No thanks",
+
+  // Thank you
+  thanksTitle: "Thank you",
+  thanksText: "Your words mean a lot to {space}.",
+  feedbackText: "Thanks for your feedback.",
+  shareText: "Just left a testimonial for {space}.",
+  shareX: "Share on X",
+  shareLinkedIn: "Share on LinkedIn",
+  backTo: "Back to {space}",
+
+  // Rewards
+  rewardTitle: "Your reward",
+  copyCode: "Copy code",
+  copied: "Copied",
+  claimReward: "Claim your reward",
+  spinTitle: "Spin the wheel",
+  spin: "Spin",
+  spinning: "Spinning",
+  youWon: "You won: {prize}",
+  noPrize: "No prize this time",
+
+  // Video recorder
+  camOn: "Turn on camera",
+  camStarting: "Starting…",
+  camOff: "Turn off camera",
+  uploadVideo: "Upload a video",
+  recStart: "Start recording",
+  recStop: "Stop recording",
+  yourRecording: "Your recording",
+  retake: "Retake",
+  uploadInstead: "Upload instead",
+  errNoRecord: "This browser can’t record. Upload a video instead.",
+  errCamBlocked: "Camera blocked. Allow it in your browser, or upload a video.",
+  errVideoType: "Use an MP4, MOV or WebM video.",
+  errVideoSize: "That’s over {mb} MB.",
+  errVideoTake: "That’s over {mb} MB. Try a shorter take.",
+  errVideoLong: "Keep it under 3 minutes.",
+  errVideoRead: "Couldn’t read that video.",
+
+  // Emails and the unsubscribe page
+  mailButton: "Leave a testimonial",
+  mailUnsubscribe: "Unsubscribe",
+  mailFooter: "Sent by {space} via Lovewall",
+  mailRewardSubject: "Your reward from {space}",
+  mailRewardIntro: "Thanks for your words. Here is your reward:",
+  unsubTitle: "Stop emails from {space}?",
+  unsubButton: "Unsubscribe",
+  unsubDone: "Done. {space} won’t email you again.",
+
+  // Spelling help (AI)
+  polish: "Fix spelling",
+  polishTitle: "Suggestion",
+  polishUse: "Use this",
+  polishKeep: "Keep mine",
+  polishNone: "Looks good",
+  polishFail: "Couldn’t check it. Try again.",
+  // Privacy: the link next to the consent box, the giver's receipt email and their private page
+  privacy: "Privacy",
+  mailReceiptSubject: "Your testimonial for {space}",
+  mailReceiptIntro: "Thanks for your testimonial. With this private link you can see it, change it or delete it.",
+  mailReceiptButton: "Manage testimonial",
+  mailReceiptNote: "Anyone with the link can change your testimonial, so keep this email to yourself. The link works for a year.",
+  manageTitle: "Your testimonial for {space}",
+  manageStatusNew: "Waiting for review",
+  manageStatusApproved: "Published",
+  manageStatusHidden: "Not shown",
+  manageReview: "Changes go back to {space} for review.",
+  manageSave: "Save changes",
+  manageSaving: "Saving",
+  manageSaved: "Saved. {space} will review the change.",
+  manageDelete: "Delete testimonial",
+  manageDeleteConfirm: "Delete it for good? This can’t be undone.",
+  manageDeleteCancel: "Keep it",
+  manageDeleted: "Your testimonial is deleted.",
+  manageExpired: "This link has expired, or the testimonial was deleted.",
+  manageConsent: "You agreed on {date}:",
+  manageVideoNote: "Your video stays as it is. To remove it, delete the testimonial.",
+};
+
+export type CollectDict = Record<keyof typeof en, string>;
+export type CollectKey = keyof typeof en;

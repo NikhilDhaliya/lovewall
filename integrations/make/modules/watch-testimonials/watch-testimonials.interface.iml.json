@@ -1,0 +1,115 @@
+[
+  {
+    "name": "id",
+    "type": "text",
+    "label": "ID"
+  },
+  {
+    "name": "status",
+    "type": "text",
+    "label": "Status"
+  },
+  {
+    "name": "featured",
+    "type": "boolean",
+    "label": "Featured"
+  },
+  {
+    "name": "rating",
+    "type": "number",
+    "label": "Rating"
+  },
+  {
+    "name": "text",
+    "type": "text",
+    "label": "Text"
+  },
+  {
+    "name": "name",
+    "type": "text",
+    "label": "Name"
+  },
+  {
+    "name": "title",
+    "type": "text",
+    "label": "Title"
+  },
+  {
+    "name": "company",
+    "type": "text",
+    "label": "Company"
+  },
+  {
+    "name": "handle",
+    "type": "text",
+    "label": "Handle"
+  },
+  {
+    "name": "email",
+    "type": "email",
+    "label": "Email"
+  },
+  {
+    "name": "avatar_url",
+    "type": "url",
+    "label": "Avatar URL"
+  },
+  {
+    "name": "video_url",
+    "type": "url",
+    "label": "Video URL"
+  },
+  {
+    "name": "image_url",
+    "type": "url",
+    "label": "Image URL"
+  },
+  {
+    "name": "source",
+    "type": "text",
+    "label": "Source"
+  },
+  {
+    "name": "source_url",
+    "type": "url",
+    "label": "Source URL"
+  },
+  {
+    "name": "tags",
+    "type": "array",
+    "label": "Tags",
+    "spec": {
+      "type": "text"
+    }
+  },
+  {
+    "name": "given_at",
+    "type": "date",
+    "label": "Given at"
+  },
+  {
+    "name": "created_at",
+    "type": "date",
+    "label": "Created at"
+  },
+  {
+    "name": "updated_at",
+    "type": "date",
+    "label": "Updated at"
+  },
+  {
+    "name": "inbox_url",
+    "type": "url",
+    "label": "Inbox URL"
+  },
+  {
+    "name": "event",
+    "type": "text",
+    "label": "Event"
+  },
+  {
+    "name": "event_at",
+    "type": "date",
+    "label": "Event time"
+  }
+]

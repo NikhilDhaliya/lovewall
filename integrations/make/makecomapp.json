@@ -1,0 +1,104 @@
+{
+  "fileVersion": 1,
+  "generalCodeFiles": {
+    "base": "general/base.iml.json",
+    "common": "general/common.json",
+    "readme": "general/readme.md",
+    "groups": "general/groups.json"
+  },
+  "components": {
+    "connection": {
+      "lovewall": {
+        "label": "Lovewall",
+        "connectionType": "basic",
+        "codeFiles": {
+          "communication": "connections/lovewall/lovewall.communication.iml.json",
+          "params": "connections/lovewall/lovewall.params.iml.json",
+          "common": "connections/lovewall/lovewall.common.json"
+        }
+      }
+    },
+    "webhook": {
+      "lovewallEvents": {
+        "label": "Lovewall events",
+        "webhookType": "web",
+        "connection": "lovewall",
+        "codeFiles": {
+          "communication": "webhooks/lovewall-events/lovewall-events.communication.iml.json",
+          "params": "webhooks/lovewall-events/lovewall-events.params.iml.json",
+          "attach": "webhooks/lovewall-events/lovewall-events.attach.iml.json",
+          "detach": "webhooks/lovewall-events/lovewall-events.detach.iml.json"
+        }
+      }
+    },
+    "module": {
+      "watchTestimonials": {
+        "label": "Watch testimonials",
+        "description": "Triggers when a testimonial is added, approved, updated or deleted.",
+        "moduleType": "instant_trigger",
+        "connection": "lovewall",
+        "webhook": "lovewallEvents",
+        "codeFiles": {
+          "communication": "modules/watch-testimonials/watch-testimonials.communication.iml.json",
+          "staticParams": "modules/watch-testimonials/watch-testimonials.static-params.iml.json",
+          "mappableParams": "modules/watch-testimonials/watch-testimonials.mappable-params.iml.json",
+          "interface": "modules/watch-testimonials/watch-testimonials.interface.iml.json",
+          "samples": "modules/watch-testimonials/watch-testimonials.samples.iml.json"
+        }
+      },
+      "searchTestimonials": {
+        "label": "Search testimonials",
+        "description": "Finds testimonials by status, text, tag, source or rating.",
+        "moduleType": "search",
+        "connection": "lovewall",
+        "codeFiles": {
+          "communication": "modules/search-testimonials/search-testimonials.communication.iml.json",
+          "staticParams": "modules/search-testimonials/search-testimonials.static-params.iml.json",
+          "mappableParams": "modules/search-testimonials/search-testimonials.mappable-params.iml.json",
+          "interface": "modules/search-testimonials/search-testimonials.interface.iml.json",
+          "samples": "modules/search-testimonials/search-testimonials.samples.iml.json"
+        }
+      },
+      "createTestimonial": {
+        "label": "Create a testimonial",
+        "description": "Adds a testimonial to your space.",
+        "moduleType": "action",
+        "actionCrud": "create",
+        "connection": "lovewall",
+        "codeFiles": {
+          "communication": "modules/create-testimonial/create-testimonial.communication.iml.json",
+          "staticParams": "modules/create-testimonial/create-testimonial.static-params.iml.json",
+          "mappableParams": "modules/create-testimonial/create-testimonial.mappable-params.iml.json",
+          "interface": "modules/create-testimonial/create-testimonial.interface.iml.json",
+          "samples": "modules/create-testimonial/create-testimonial.samples.iml.json"
+        }
+      },
+      "approveTestimonial": {
+        "label": "Approve a testimonial",
+        "description": "Approves a testimonial so it shows on your walls.",
+        "moduleType": "action",
+        "actionCrud": "update",
+        "connection": "lovewall",
+        "codeFiles": {
+          "communication": "modules/approve-testimonial/approve-testimonial.communication.iml.json",
+          "staticParams": "modules/approve-testimonial/approve-testimonial.static-params.iml.json",
+          "mappableParams": "modules/approve-testimonial/approve-testimonial.mappable-params.iml.json",
+          "interface": "modules/approve-testimonial/approve-testimonial.interface.iml.json",
+          "samples": "modules/approve-testimonial/approve-testimonial.samples.iml.json"
+        }
+      }
+    },
+    "rpc": {
+      "listNewTestimonials": {
+        "label": "List new testimonials",
+        "connection": "lovewall",
+        "codeFiles": {
+          "communication": "rpcs/list-new-testimonials/list-new-testimonials.communication.iml.json",
+          "params": "rpcs/list-new-testimonials/list-new-testimonials.params.iml.json"
+        }
+      }
+    },
+    "function": {}
+  },
+  "origins": []
+}

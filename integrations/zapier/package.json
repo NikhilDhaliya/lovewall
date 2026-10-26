@@ -1,0 +1,11 @@
+{
+  "name": "lovewall-zapier",
+  "version": "1.0.0",
+  "description": "Lovewall for Zapier: new testimonials in, testimonials created and approved out.",
+  "private": true,
+  "type": "module",
+  "exports": "./index.js",
+  "dependencies": {
+    "zapier-platform-core": "19.2.1"
+  }
+}

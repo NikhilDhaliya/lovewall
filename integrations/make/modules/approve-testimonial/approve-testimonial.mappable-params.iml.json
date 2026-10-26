@@ -1,0 +1,12 @@
+[
+  {
+    "name": "id",
+    "type": "select",
+    "label": "Testimonial",
+    "required": true,
+    "options": {
+      "store": "rpc://listNewTestimonials"
+    },
+    "help": "Pick one from the inbox, or map an ID."
+  }
+]

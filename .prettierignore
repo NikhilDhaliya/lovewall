@@ -1,0 +1,10 @@
+.next
+node_modules
+pnpm-lock.yaml
+public/embed.js
+docs
+test-results
+playwright-report
+e2e/.tmp
+assets
+.shots

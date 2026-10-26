@@ -1,0 +1,23 @@
+{
+  "url": "{{parameters.appUrl}}/api/v1/space",
+  "method": "GET",
+  "headers": {
+    "Authorization": "Bearer {{parameters.apiKey}}",
+    "Accept": "application/json"
+  },
+  "response": {
+    "metadata": {
+      "type": "text",
+      "value": "{{body.data.name}}"
+    },
+    "error": {
+      "401": {
+        "message": "[401] {{ifempty(body.error.message, 'Invalid API key')}}. Create a key in Lovewall and paste it again."
+      },
+      "message": "[{{statusCode}}] {{ifempty(body.error.message, 'Could not reach Lovewall at this URL')}}"
+    }
+  },
+  "log": {
+    "sanitize": ["request.headers.authorization", "request.headers.Authorization"]
+  }
+}

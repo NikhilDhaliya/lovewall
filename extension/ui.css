@@ -1,0 +1,477 @@
+/* Save to Lovewall: the app's tokens (src/app/globals.css), light and dark. Calm and monochrome: warm off-white page,
+   white surfaces with 1px hairlines, no drop shadows, red only as a signal. */
+:root {
+  --canvas: #fafaf9;
+  --surface: #ffffff;
+  --surface-2: #f2f2f0;
+  --surface-3: #e7e7e4;
+  --ink: #1c1c1b;
+  --muted: #64635f;
+  --faint: #6f6e6a;
+  --line: #e6e5e1;
+  --accent: #1c1c1b;
+  --accent-hover: #383836;
+  --on-accent: #ffffff;
+  --danger: #c4161c;
+  --star: #1c1c1b;
+  --ring: rgba(28, 28, 27, 0.32);
+  --focus: rgba(28, 28, 27, 0.45);
+  color-scheme: light;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --canvas: #0d0d0c;
+    --surface: #151514;
+    --surface-2: #1e1e1c;
+    --surface-3: #2a2a27;
+    --ink: #f3f3f1;
+    --muted: #a3a29d;
+    --faint: #8f8e89;
+    --line: #2a2a27;
+    --accent: #f3f3f1;
+    --accent-hover: #dcdcd9;
+    --on-accent: #0d0d0c;
+    --danger: #ff6369;
+    --star: #f3f3f1;
+    --ring: rgba(243, 243, 241, 0.45);
+    --focus: rgba(243, 243, 241, 0.5);
+    color-scheme: dark;
+  }
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  background: var(--canvas);
+  color: var(--ink);
+}
+
+body {
+  font:
+    14px/1.45 -apple-system,
+    BlinkMacSystemFont,
+    "SF Pro Text",
+    "Segoe UI",
+    system-ui,
+    sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+h1,
+p {
+  margin: 0;
+}
+
+[hidden] {
+  display: none !important;
+}
+
+:focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: 2px;
+}
+
+::selection {
+  background: var(--surface-3);
+}
+
+a {
+  color: inherit;
+}
+
+.muted {
+  color: var(--muted);
+}
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+.mark {
+  flex-shrink: 0;
+}
+.mark rect {
+  fill: var(--accent);
+}
+.mark path {
+  fill: var(--on-accent);
+}
+
+/* Fields: label above, white field with a hairline; focus thickens the hairline. */
+.field {
+  margin: 0;
+  padding: 0;
+  border: 0;
+  min-width: 0;
+}
+.field + .field,
+.pair + .field,
+.field + .pair {
+  margin-top: 14px;
+}
+.pair {
+  display: grid;
+  grid-template-columns: 3fr 2fr;
+  gap: 10px;
+}
+.pair > .field {
+  margin-top: 0;
+}
+.label,
+.field > label,
+.field > legend {
+  display: block;
+  margin: 0 0 6px;
+  padding: 0;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--muted);
+}
+.label-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 6px;
+}
+.label-row > label {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--muted);
+}
+.label-row .aside {
+  min-width: 0;
+  overflow: hidden;
+  font-size: 13px;
+  color: var(--faint);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.input {
+  display: block;
+  width: 100%;
+  height: 38px;
+  padding: 0 12px;
+  border: 0;
+  border-radius: 8px;
+  background: var(--surface);
+  color: var(--ink);
+  font: inherit;
+  font-size: 14px;
+  box-shadow: inset 0 0 0 1px var(--line);
+  outline: none;
+  transition: box-shadow 150ms;
+}
+textarea.input {
+  height: auto;
+  min-height: 96px;
+  padding: 9px 12px;
+  line-height: 1.5;
+  resize: vertical;
+}
+.input::placeholder {
+  color: var(--faint);
+  opacity: 1;
+}
+.input:focus,
+.input:focus-visible {
+  box-shadow: inset 0 0 0 1.5px var(--focus);
+  outline: none;
+}
+.input[aria-invalid="true"] {
+  box-shadow: inset 0 0 0 1.5px var(--danger);
+}
+
+/* Buttons: 8px corners, medium weight, no shadow. */
+.button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  height: 38px;
+  padding: 0 16px;
+  border: 0;
+  border-radius: 8px;
+  font: inherit;
+  font-size: 14px;
+  font-weight: 500;
+  text-decoration: none;
+  white-space: nowrap;
+  cursor: pointer;
+  transition:
+    background-color 150ms,
+    color 150ms,
+    opacity 150ms;
+}
+.button:disabled {
+  cursor: default;
+  opacity: 0.5;
+}
+.button.primary {
+  background: var(--accent);
+  color: var(--on-accent);
+}
+.button.primary:hover:not(:disabled) {
+  background: var(--accent-hover);
+}
+.button.secondary {
+  background: var(--surface);
+  color: var(--ink);
+  box-shadow: inset 0 0 0 1px var(--line);
+}
+.button.secondary:hover {
+  background: var(--surface-2);
+}
+.button.plain {
+  height: auto;
+  margin: -2px -4px;
+  padding: 2px 4px;
+  border-radius: 6px;
+  background: none;
+  color: var(--muted);
+}
+.button.plain:hover {
+  color: var(--ink);
+}
+.button.wide {
+  width: 100%;
+}
+.icon-button {
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  border: 0;
+  border-radius: 8px;
+  background: none;
+  color: var(--muted);
+  cursor: pointer;
+}
+.icon-button:hover {
+  background: var(--surface-2);
+  color: var(--ink);
+}
+
+/* Rating: five native radios drawn as stars. data-show on the group says how many look filled. */
+.stars {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  margin-left: -4px;
+}
+.stars input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: 0;
+  opacity: 0;
+  pointer-events: none;
+}
+.stars label {
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  color: var(--surface-3);
+  cursor: pointer;
+  transition: color 120ms;
+}
+.stars svg {
+  width: 22px;
+  height: 22px;
+  fill: currentColor;
+}
+.stars input:focus-visible + label {
+  outline: 2px solid var(--ring);
+  outline-offset: 0;
+}
+.stars[data-show="1"] label:nth-of-type(-n + 1),
+.stars[data-show="2"] label:nth-of-type(-n + 2),
+.stars[data-show="3"] label:nth-of-type(-n + 3),
+.stars[data-show="4"] label:nth-of-type(-n + 4),
+.stars[data-show="5"] label:nth-of-type(-n + 5) {
+  color: var(--star);
+}
+.stars .clear {
+  margin-left: 10px;
+  font-size: 13px;
+}
+
+/* Status line: muted, red for errors, a dot when connected. */
+.status {
+  min-height: 20px;
+  font-size: 13px;
+  color: var(--muted);
+}
+.status.error {
+  color: var(--danger);
+}
+.status.ok::before {
+  content: "";
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  margin: 0 8px 1px 0;
+  border-radius: 50%;
+  background: var(--ink);
+}
+
+/* Popup: about 360px wide. */
+.popup {
+  width: 360px;
+}
+.popup.as-window {
+  width: auto;
+}
+.popup .bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  height: 48px;
+  padding: 0 8px 0 16px;
+  border-bottom: 1px solid var(--line);
+}
+.popup .bar h1 {
+  font-size: 14px;
+  font-weight: 500;
+}
+.popup .bar .space {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  font-size: 13px;
+  color: var(--muted);
+  text-align: right;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.popup main {
+  padding: 16px;
+}
+.popup .link-row {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-top: 12px;
+  font-size: 12px;
+  color: var(--faint);
+}
+.popup .link-row a {
+  min-width: 0;
+  overflow: hidden;
+  color: var(--faint);
+  text-decoration: none;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.popup .link-row a:hover {
+  color: var(--ink);
+  text-decoration: underline;
+}
+.popup .link-row .icon-button {
+  width: 24px;
+  height: 24px;
+  flex-shrink: 0;
+  border-radius: 6px;
+}
+.popup .status {
+  margin: 10px 0;
+}
+.popup .center {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  padding: 28px 8px 12px;
+  text-align: center;
+}
+.popup .center h2 {
+  margin: 6px 0 0;
+  font-size: 16px;
+  font-weight: 500;
+}
+.popup .center h2:focus {
+  outline: none;
+}
+.popup .center .actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 14px;
+}
+.popup .check {
+  width: 36px;
+  height: 36px;
+  color: var(--ink);
+}
+
+/* Options page: one narrow column on the canvas. */
+.options .page {
+  max-width: 440px;
+  margin: 0 auto;
+  padding: 64px 16px;
+}
+.options .head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 24px;
+}
+.options h1 {
+  font-size: 20px;
+  font-weight: 500;
+  letter-spacing: -0.01em;
+}
+.options .card {
+  padding: 20px;
+  border-radius: 12px;
+  background: var(--surface);
+  box-shadow: 0 0 0 1px var(--line);
+}
+.options .card .input {
+  background: var(--canvas);
+}
+.options .row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-top: 20px;
+}
+.options .row .status {
+  flex: 1;
+  min-height: 0;
+}
+.options .label-row a {
+  font-size: 13px;
+  color: var(--muted);
+  text-decoration: none;
+}
+.options .label-row a:hover {
+  color: var(--ink);
+  text-decoration: underline;
+}
+.options .foot {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 14px;
+  font-size: 13px;
+}
+.sprite {
+  position: absolute;
+}

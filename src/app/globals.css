@@ -1,0 +1,403 @@
+@import "tailwindcss";
+
+/* `dark:` follows the chosen theme (data-theme on <html>), not only the system setting. */
+@custom-variant dark (&:where([data-theme="dark"], [data-theme="dark"] *));
+
+/* Lovewall tokens. Calm: near-black ink on a warm paper page, white cards, 1px hairlines, no drop shadows, and one
+   warm coral accent (buttons, switches, stars, unread dots). Red only as a signal.
+   Use the Tailwind names (bg-canvas, bg-surface, text-ink, text-muted, border-line, bg-accent, text-on-accent...). */
+:root {
+  --canvas: #f4f2ee;
+  --grouped: #ece9e3;
+  --surface: #ffffff;
+  --surface-2: #f3f1ec;
+  --surface-3: #e6e3dc;
+  --ink: #1c1c1b;
+  --muted: #57564f;
+  --faint: #66655f; /* 5.1:1 on the canvas (AA) */
+  --line: #dcd9d2;
+  --accent: #c8461f; /* warm coral: buttons, switches, stars, unread dots */
+  --accent-hover: #b03c19;
+  --on-accent: #ffffff;
+  --material: rgba(244, 242, 238, 0.8);
+  --bar: rgba(244, 242, 238, 0.96); /* bars over scrolling content: nothing reads through, even where blur is unavailable */
+  --material-strong: rgba(255, 255, 255, 0.92);
+  --danger: #c4161c;
+  --danger-soft: #fdeceb;
+  --star: var(--accent);
+  --ring: rgba(200, 70, 31, 0.4);
+  /* No drop shadows on the page: hairlines carry depth. Only floating layers (menus, dialogs, toasts) get one. */
+  --shadow: none;
+  --shadow-lg: 0 0 0 1px rgba(0, 0, 0, 0.06), 0 12px 32px rgba(0, 0, 0, 0.08);
+  color-scheme: light;
+}
+
+:root[data-theme="dark"] {
+  --canvas: #0d0d0c;
+  --grouped: #121211;
+  --surface: #151514;
+  --surface-2: #1e1e1c;
+  --surface-3: #2a2a27;
+  --ink: #f3f3f1;
+  --muted: #a3a29d;
+  --faint: #8f8e89;
+  --line: #2a2a27;
+  --accent: #f07a4f;
+  --accent-hover: #f48f69;
+  --on-accent: #0d0d0c;
+  --material: rgba(13, 13, 12, 0.72);
+  --bar: rgba(13, 13, 12, 0.94);
+  --material-strong: rgba(30, 30, 28, 0.9);
+  --danger: #ff6369;
+  --danger-soft: #3a1d1f;
+  --star: var(--accent);
+  --ring: rgba(240, 122, 79, 0.5);
+  --shadow: none;
+  --shadow-lg: 0 0 0 1px rgba(255, 255, 255, 0.08), 0 16px 40px rgba(0, 0, 0, 0.5);
+  color-scheme: dark;
+}
+
+@theme inline {
+  --color-canvas: var(--canvas);
+  --color-grouped: var(--grouped);
+  --color-surface: var(--surface);
+  --color-surface-2: var(--surface-2);
+  --color-surface-3: var(--surface-3);
+  --color-ink: var(--ink);
+  --color-muted: var(--muted);
+  --color-faint: var(--faint);
+  --color-line: var(--line);
+  --color-accent: var(--accent);
+  --color-accent-hover: var(--accent-hover);
+  --color-on-accent: var(--on-accent);
+  --color-danger: var(--danger);
+  --color-danger-soft: var(--danger-soft);
+  --color-star: var(--star);
+  --color-material: var(--material);
+  --color-material-strong: var(--material-strong);
+  --font-sans: -apple-system, BlinkMacSystemFont, "SF Pro Text", var(--font-geist-sans), system-ui, sans-serif;
+  --font-mono: ui-monospace, "SF Mono", var(--font-geist-mono), Menlo, monospace;
+  --shadow-soft: var(--shadow);
+  --shadow-float: var(--shadow-lg);
+}
+
+@theme {
+  /* iOS easing: fast start, long soft landing. Expo-out for entrances. */
+  --ease-ios: cubic-bezier(0.32, 0.72, 0, 1);
+  --ease-out-expo: cubic-bezier(0.16, 1, 0.3, 1);
+  --default-transition-duration: 180ms;
+  --default-transition-timing-function: cubic-bezier(0.32, 0.72, 0, 1);
+
+  --animate-fade-in: lw-fade-in 200ms var(--ease-ios) both;
+  --animate-fade-out: lw-fade-out 160ms var(--ease-ios) both;
+  --animate-pop-in: lw-pop-in 180ms var(--ease-out-expo) both;
+  --animate-pop-out: lw-pop-out 120ms var(--ease-ios) both;
+  --animate-dialog-in: lw-dialog-in 260ms var(--ease-out-expo) both;
+  --animate-dialog-out: lw-dialog-out 160ms var(--ease-ios) both;
+  --animate-rise: lw-rise 260ms var(--ease-out-expo) both;
+  --animate-view: lw-view 300ms var(--ease-out-expo) both;
+  --animate-sheet-in: lw-sheet-in 380ms var(--ease-ios) both;
+  --animate-sheet-out: lw-sheet-out 220ms var(--ease-ios) both;
+  --animate-alert-in: lw-alert-in 220ms var(--ease-out-expo) both;
+  --animate-alert-out: lw-alert-out 150ms var(--ease-ios) both;
+  --animate-tip-in: lw-tip-in 140ms var(--ease-out-expo) both;
+  --animate-shimmer: lw-shimmer 1.4s ease-in-out infinite;
+}
+
+@keyframes lw-fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+@keyframes lw-fade-out {
+  from {
+    opacity: 1;
+  }
+  to {
+    opacity: 0;
+  }
+}
+@keyframes lw-pop-in {
+  from {
+    opacity: 0;
+    transform: scale(0.96) translateY(-4px);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+@keyframes lw-pop-out {
+  from {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+  to {
+    opacity: 0;
+    transform: scale(0.97) translateY(-2px);
+  }
+}
+@keyframes lw-pop-in-up {
+  from {
+    opacity: 0;
+    transform: scale(0.96) translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+@keyframes lw-pop-out-up {
+  from {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+  to {
+    opacity: 0;
+    transform: scale(0.97) translateY(2px);
+  }
+}
+[data-side="top"][data-state="open"] {
+  animation-name: lw-pop-in-up;
+}
+[data-side="top"][data-state="closed"] {
+  animation-name: lw-pop-out-up;
+}
+@keyframes lw-sheet-in {
+  from {
+    transform: translateY(110%);
+  }
+  to {
+    transform: translateY(0);
+  }
+}
+@keyframes lw-sheet-out {
+  from {
+    transform: translateY(0);
+  }
+  to {
+    transform: translateY(110%);
+  }
+}
+@keyframes lw-alert-in {
+  from {
+    opacity: 0;
+    transform: translate(-50%, -50%) scale(1.06);
+  }
+  to {
+    opacity: 1;
+    transform: translate(-50%, -50%) scale(1);
+  }
+}
+@keyframes lw-alert-out {
+  from {
+    opacity: 1;
+    transform: translate(-50%, -50%) scale(1);
+  }
+  to {
+    opacity: 0;
+    transform: translate(-50%, -50%) scale(0.97);
+  }
+}
+@keyframes lw-tip-in {
+  from {
+    opacity: 0;
+    transform: translateY(2px) scale(0.97);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+@keyframes lw-dialog-in {
+  from {
+    opacity: 0;
+    transform: scale(0.96) translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+@keyframes lw-dialog-out {
+  from {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+  to {
+    opacity: 0;
+    transform: scale(0.98) translateY(6px);
+  }
+}
+@keyframes lw-rise {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+@keyframes lw-view {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+@keyframes lw-shimmer {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.55;
+  }
+}
+
+@layer base {
+  html,
+  body {
+    background: var(--canvas);
+    color: var(--ink);
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", var(--font-geist-sans), system-ui, sans-serif;
+    font-feature-settings: "cv11", "ss01";
+    text-rendering: optimizeLegibility;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  /* Keyboard focus: a soft ring on controls. Fields inside styled wrappers show it on the wrapper instead. */
+  :focus-visible {
+    outline: 2px solid var(--ring);
+    outline-offset: 2px;
+  }
+  :where(input, textarea, select):focus-visible {
+    outline: none;
+  }
+
+  ::selection {
+    background: var(--surface-3);
+  }
+
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: var(--surface-3) transparent;
+  }
+
+  button,
+  [role="button"] {
+    touch-action: manipulation;
+    cursor: pointer;
+  }
+  button:disabled {
+    cursor: default;
+  }
+
+  /* No iOS zoom on focus: fields are at least 16px on touch screens. */
+  @media (pointer: coarse) {
+    input,
+    textarea,
+    select {
+      font-size: max(16px, 1em) !important;
+    }
+  }
+}
+
+/* Titles: SF Pro Display where it exists, Geist elsewhere; slightly tighter. Titles are medium or semibold, never
+   heavy. */
+@utility font-display {
+  font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", var(--font-geist-sans), system-ui, sans-serif;
+  letter-spacing: -0.018em;
+}
+
+@utility material {
+  background-color: var(--material);
+  -webkit-backdrop-filter: saturate(180%) blur(20px);
+  backdrop-filter: saturate(180%) blur(20px);
+}
+/* Navigation bars (top bar, tab bar, sticky toolbars): nearly opaque material, so content scrolling underneath
+   never reads through, with blur where the browser can composite it. */
+@utility bar {
+  background-color: var(--bar);
+  -webkit-backdrop-filter: saturate(180%) blur(24px);
+  backdrop-filter: saturate(180%) blur(24px);
+}
+@utility material-strong {
+  background-color: var(--material-strong);
+  -webkit-backdrop-filter: saturate(180%) blur(24px);
+  backdrop-filter: saturate(180%) blur(24px);
+}
+
+@utility ring-soft {
+  box-shadow: 0 0 0 1.5px color-mix(in srgb, var(--ink) 28%, transparent);
+}
+
+@utility hairline {
+  box-shadow:
+    0 0 0 0.5px var(--line),
+    inset 0 0 0 0.5px var(--line);
+}
+@utility hairline-b {
+  box-shadow:
+    inset 0 -0.5px 0 var(--line),
+    0 0.5px 0 var(--line);
+}
+@utility hairline-t {
+  box-shadow:
+    0 -0.5px 0 var(--line),
+    inset 0 0.5px 0 var(--line);
+}
+
+@utility pt-safe {
+  padding-top: env(safe-area-inset-top);
+}
+@utility pb-safe {
+  padding-bottom: env(safe-area-inset-bottom);
+}
+
+@utility skeleton {
+  background: var(--surface-2);
+  border-radius: 8px;
+  animation: lw-shimmer 1.4s ease-in-out infinite;
+}
+
+@utility no-scrollbar {
+  scrollbar-width: none;
+  &::-webkit-scrollbar {
+    display: none;
+  }
+}
+
+[data-vaul-drawer] {
+  will-change: transform;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  ::before,
+  ::after {
+    animation-duration: 1ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 1ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* While the theme flips, no colour fades. */
+html.theme-switching *,
+html.theme-switching *::before,
+html.theme-switching *::after {
+  transition: none !important;
+}

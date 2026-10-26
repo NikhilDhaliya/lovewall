@@ -1,0 +1,21 @@
+{
+  "url": "/testimonials",
+  "method": "GET",
+  "qs": {
+    "status": "new",
+    "limit": 100
+  },
+  "response": {
+    "iterate": "{{body.data}}",
+    "output": {
+      "label": "{{item.name}}: {{substring(item.text, 0, 60)}}",
+      "value": "{{item.id}}"
+    }
+  },
+  "pagination": {
+    "qs": {
+      "cursor": "{{body.next_cursor}}"
+    },
+    "condition": "{{body.next_cursor}}"
+  }
+}

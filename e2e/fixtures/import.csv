@@ -1,0 +1,4 @@
+name,title,company,text,rating,source,url,date,tags
+Grace Hopper,Rear Admiral,Navy,"It compiles, ship it.",5,LinkedIn,,2026-09-01,launch
+Alan Turing,,Bletchley,"Remarkably thoughtful product.",4,G2,,2026-08-15,
+,,,"missing name row",5,,,,

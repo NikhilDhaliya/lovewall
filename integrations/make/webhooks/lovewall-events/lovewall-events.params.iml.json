@@ -1,0 +1,27 @@
+[
+  {
+    "name": "event",
+    "type": "select",
+    "label": "Event",
+    "required": true,
+    "default": "testimonial.created",
+    "options": [
+      {
+        "label": "New testimonial",
+        "value": "testimonial.created"
+      },
+      {
+        "label": "Testimonial approved",
+        "value": "testimonial.approved"
+      },
+      {
+        "label": "Testimonial updated",
+        "value": "testimonial.updated"
+      },
+      {
+        "label": "Testimonial deleted",
+        "value": "testimonial.deleted"
+      }
+    ]
+  }
+]

@@ -1,0 +1,6 @@
+[
+  {
+    "label": "Testimonials",
+    "modules": ["watchTestimonials", "searchTestimonials", "createTestimonial", "approveTestimonial"]
+  }
+]

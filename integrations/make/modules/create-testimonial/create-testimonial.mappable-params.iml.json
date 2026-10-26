@@ -1,0 +1,119 @@
+[
+  {
+    "name": "name",
+    "type": "text",
+    "label": "Name",
+    "required": true,
+    "validate": {
+      "max": 80
+    }
+  },
+  {
+    "name": "text",
+    "type": "text",
+    "label": "Text",
+    "required": true,
+    "validate": {
+      "max": 3000
+    }
+  },
+  {
+    "name": "rating",
+    "type": "uinteger",
+    "label": "Rating",
+    "help": "1 to 5 stars.",
+    "validate": {
+      "min": 1,
+      "max": 5
+    }
+  },
+  {
+    "name": "title",
+    "type": "text",
+    "label": "Title",
+    "help": "Role, like Head of Growth.",
+    "validate": {
+      "max": 80
+    }
+  },
+  {
+    "name": "company",
+    "type": "text",
+    "label": "Company",
+    "validate": {
+      "max": 80
+    }
+  },
+  {
+    "name": "handle",
+    "type": "text",
+    "label": "Handle",
+    "help": "Social handle, without the @.",
+    "validate": {
+      "max": 60
+    }
+  },
+  {
+    "name": "email",
+    "type": "email",
+    "label": "Email",
+    "help": "Kept private, never shown on walls."
+  },
+  {
+    "name": "source",
+    "type": "text",
+    "label": "Source",
+    "default": "Make",
+    "help": "Where it came from, like Typeform.",
+    "validate": {
+      "max": 32
+    }
+  },
+  {
+    "name": "source_url",
+    "type": "url",
+    "label": "Source URL",
+    "help": "An https link to the original. A link already in your space is rejected as a duplicate."
+  },
+  {
+    "name": "avatar_url",
+    "type": "url",
+    "label": "Avatar URL",
+    "help": "An https image link; Lovewall keeps its own copy."
+  },
+  {
+    "name": "given_at",
+    "type": "date",
+    "label": "Date",
+    "help": "When it was given. Defaults to now."
+  },
+  {
+    "name": "tags",
+    "type": "array",
+    "label": "Tags",
+    "spec": {
+      "type": "text",
+      "label": "Tag"
+    }
+  },
+  {
+    "name": "status",
+    "type": "select",
+    "label": "Status",
+    "default": "new",
+    "options": [
+      {
+        "label": "New (inbox)",
+        "value": "new"
+      },
+      {
+        "label": "Approved (on walls)",
+        "value": "approved"
+      },
+      {
+        "label": "Hidden",
+        "value": "hidden"
+      }
+    ]
+  }
+]

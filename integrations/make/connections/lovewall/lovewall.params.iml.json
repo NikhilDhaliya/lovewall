@@ -1,0 +1,21 @@
+[
+  {
+    "name": "appUrl",
+    "type": "text",
+    "label": "Lovewall URL",
+    "required": true,
+    "default": "https://lovewall.tech",
+    "validate": {
+      "pattern": "^https?://[A-Za-z0-9.-]+(:[0-9]+)?$"
+    },
+    "help": "Keep `https://lovewall.tech` unless you host Lovewall yourself. No trailing slash."
+  },
+  {
+    "name": "apiKey",
+    "type": "password",
+    "label": "API key",
+    "required": true,
+    "editable": true,
+    "help": "In Lovewall, open your space's settings and create an API key. Creating and approving need write access."
+  }
+]

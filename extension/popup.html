@@ -1,0 +1,133 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="color-scheme" content="light dark" />
+    <title>Save to Lovewall</title>
+    <link rel="stylesheet" href="ui.css" />
+  </head>
+  <body class="popup">
+    <header class="bar">
+      <svg class="mark" width="20" height="20" viewBox="0 0 32 32" aria-hidden="true">
+        <rect width="32" height="32" rx="8.5" />
+        <path
+          transform="translate(4 4.4)"
+          d="M12 20.4c-.3 0-.6-.1-.8-.3C6.3 16 3.2 13.1 3.2 9.4 3.2 6.6 5.3 4.5 8 4.5c1.6 0 3 .7 4 2 1-1.3 2.4-2 4-2 2.7 0 4.8 2.1 4.8 4.9 0 3.7-3.1 6.6-8 10.7-.2.2-.5.3-.8.3z"
+        />
+      </svg>
+      <h1>Save to Lovewall</h1>
+      <span class="space" id="space"></span>
+      <button type="button" class="icon-button" id="settings" aria-label="Settings" title="Settings">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" aria-hidden="true">
+          <path
+            d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"
+          />
+          <circle cx="12" cy="12" r="3" />
+        </svg>
+      </button>
+    </header>
+
+    <main>
+      <section id="setup" class="center" hidden>
+        <h2>Connect your Lovewall</h2>
+        <p class="muted">Add an API key to save from any page.</p>
+        <div class="actions">
+          <button type="button" class="button primary" id="setup-button">Set up</button>
+        </div>
+      </section>
+
+      <form id="form" novalidate hidden>
+        <div class="field">
+          <label for="text">Text</label>
+          <textarea
+            class="input"
+            id="text"
+            rows="4"
+            maxlength="3000"
+            required
+            placeholder="Select text on a page, or paste it here"
+          ></textarea>
+        </div>
+        <div class="pair">
+          <div class="field">
+            <div class="label-row">
+              <label for="name">Name</label>
+              <span class="aside" id="handle"></span>
+            </div>
+            <input class="input" id="name" maxlength="80" required autocomplete="off" />
+          </div>
+          <div class="field">
+            <label for="source">Source</label>
+            <input class="input" id="source" maxlength="32" autocomplete="off" placeholder="Website" />
+          </div>
+        </div>
+        <div class="field">
+          <label for="title">Title</label>
+          <input class="input" id="title" maxlength="80" autocomplete="off" placeholder="Founder, Acme" />
+        </div>
+        <fieldset class="field">
+          <legend>Rating</legend>
+          <div class="stars" id="stars" data-show="0">
+            <input type="radio" name="rating" id="star-1" value="1" />
+            <label for="star-1"
+              ><span class="sr-only">1 star</span><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#star" /></svg
+            ></label>
+            <input type="radio" name="rating" id="star-2" value="2" />
+            <label for="star-2"
+              ><span class="sr-only">2 stars</span><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#star" /></svg
+            ></label>
+            <input type="radio" name="rating" id="star-3" value="3" />
+            <label for="star-3"
+              ><span class="sr-only">3 stars</span><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#star" /></svg
+            ></label>
+            <input type="radio" name="rating" id="star-4" value="4" />
+            <label for="star-4"
+              ><span class="sr-only">4 stars</span><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#star" /></svg
+            ></label>
+            <input type="radio" name="rating" id="star-5" value="5" />
+            <label for="star-5"
+              ><span class="sr-only">5 stars</span><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#star" /></svg
+            ></label>
+            <button type="button" class="button plain clear" id="clear-rating" hidden>Clear</button>
+          </div>
+        </fieldset>
+        <p class="link-row" id="link-row" hidden>
+          <a id="link" target="_blank" rel="noreferrer"></a>
+          <button type="button" class="icon-button" id="unlink" aria-label="Remove link" title="Remove link">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+              <path d="M18 6 6 18" />
+              <path d="m6 6 12 12" />
+            </svg>
+          </button>
+        </p>
+        <p class="status" id="status" aria-live="polite"></p>
+        <button type="submit" class="button primary wide" id="save">Save</button>
+      </form>
+
+      <section id="saved" class="center" hidden>
+        <svg class="check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true">
+          <circle cx="12" cy="12" r="10" />
+          <path d="m8.5 12 2.5 2.5 4.5-5" />
+        </svg>
+        <h2 id="saved-title" tabindex="-1">Saved</h2>
+        <p class="muted" id="saved-space"></p>
+        <div class="actions">
+          <a class="button secondary" id="inbox" target="_blank" rel="noreferrer">Open inbox</a>
+          <button type="button" class="button plain" id="done">Done</button>
+        </div>
+      </section>
+    </main>
+
+    <svg class="sprite" width="0" height="0" aria-hidden="true">
+      <symbol id="star" viewBox="0 0 24 24">
+        <path d="M12 2.6l2.83 6.08 6.67.78-4.93 4.55 1.31 6.58L12 17.3l-5.88 3.29 1.31-6.58L2.5 9.46l6.67-.78z" />
+      </symbol>
+    </svg>
+
+    <script src="parse.js"></script>
+    <script src="collect.js"></script>
+    <script src="api.js"></script>
+    <script src="popup.js"></script>
+  </body>
+</html>

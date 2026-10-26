@@ -1,0 +1,33 @@
+{
+  "output": {
+    "id": "{{body.data.id}}",
+    "status": "{{body.data.status}}",
+    "featured": "{{body.data.featured}}",
+    "rating": "{{body.data.rating}}",
+    "text": "{{body.data.text}}",
+    "name": "{{body.data.name}}",
+    "title": "{{body.data.title}}",
+    "company": "{{body.data.company}}",
+    "handle": "{{body.data.handle}}",
+    "email": "{{body.data.email}}",
+    "avatar_url": "{{body.data.avatar_url}}",
+    "video_url": "{{body.data.video_url}}",
+    "image_url": "{{body.data.image_url}}",
+    "source": "{{body.data.source}}",
+    "source_url": "{{body.data.source_url}}",
+    "tags": "{{body.data.tags}}",
+    "given_at": "{{body.data.given_at}}",
+    "created_at": "{{body.data.created_at}}",
+    "updated_at": "{{body.data.updated_at}}",
+    "inbox_url": "{{body.data.inbox_url}}",
+    "event": "{{body.type}}",
+    "event_at": "{{body.timestamp}}"
+  },
+  "respond": {
+    "type": "json",
+    "status": 200,
+    "body": {
+      "ok": true
+    }
+  }
+}

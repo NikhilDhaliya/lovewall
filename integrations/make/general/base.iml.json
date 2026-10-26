@@ -1,0 +1,39 @@
+{
+  "baseUrl": "{{connection.appUrl}}/api/v1",
+  "headers": {
+    "Authorization": "Bearer {{connection.apiKey}}",
+    "Accept": "application/json"
+  },
+  "response": {
+    "error": {
+      "401": {
+        "type": "InvalidAccessTokenError",
+        "message": "[401] {{ifempty(body.error.message, 'Invalid API key')}}. Reconnect Lovewall with a valid key."
+      },
+      "403": {
+        "type": "InvalidConfigurationError",
+        "message": "[403] {{ifempty(body.error.message, 'This API key is read-only')}}. Use a key with write access."
+      },
+      "404": {
+        "type": "DataError",
+        "message": "[404] {{ifempty(body.error.message, 'Not found')}}"
+      },
+      "409": {
+        "type": "DuplicateDataError",
+        "message": "[409] {{ifempty(body.error.message, 'Already in your space')}}"
+      },
+      "422": {
+        "type": "DataError",
+        "message": "[422] {{ifempty(body.error.message, 'Lovewall rejected the data')}}"
+      },
+      "429": {
+        "type": "RateLimitError",
+        "message": "[429] {{ifempty(body.error.message, 'Too many requests')}}"
+      },
+      "message": "[{{statusCode}}] {{ifempty(body.error.message, 'Lovewall error')}}"
+    }
+  },
+  "log": {
+    "sanitize": ["request.headers.authorization", "request.headers.Authorization"]
+  }
+}

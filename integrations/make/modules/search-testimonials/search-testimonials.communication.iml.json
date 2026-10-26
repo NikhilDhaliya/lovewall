@@ -1,0 +1,24 @@
+{
+  "url": "/testimonials",
+  "method": "GET",
+  "qs": {
+    "status": "{{parameters.status}}",
+    "q": "{{parameters.q}}",
+    "tag": "{{parameters.tag}}",
+    "source": "{{parameters.source}}",
+    "rating": "{{parameters.rating}}",
+    "featured": "{{parameters.featured}}",
+    "limit": 100
+  },
+  "response": {
+    "limit": "{{parameters.limit}}",
+    "iterate": "{{body.data}}",
+    "output": "{{item}}"
+  },
+  "pagination": {
+    "qs": {
+      "cursor": "{{body.next_cursor}}"
+    },
+    "condition": "{{body.next_cursor}}"
+  }
+}
