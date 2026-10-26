@@ -22,6 +22,7 @@ export type ApiTestimonial = {
   image_url: string | null;
   source: string;
   source_url: string | null;
+  rewarded: boolean;
   tags: string[];
   given_at: string;
   created_at: string;
@@ -48,6 +49,7 @@ export function toApi(t: Testimonial, withEmail = false): ApiTestimonial {
     image_url: fileUrl(t.image_key),
     source: t.source,
     source_url: t.source_url,
+    rewarded: t.rewarded ?? false,
     tags: t.tags,
     given_at: iso(t.given_at),
     created_at: iso(t.created_at),

@@ -10,7 +10,7 @@ import { csvRecipients, parseRecipients } from "../src/lib/recipients";
 
 // Collect's pure functions: no server needed.
 
-test("custom domains map only forms, wall pages and the form's own API", () => {
+test("custom domains map only forms, wall pages and their own API calls", () => {
   expect(customDomainRoute("/")).toEqual({ kind: "form", slug: null });
   expect(customDomainRoute("/feedback")).toEqual({ kind: "form", slug: "feedback" });
   expect(customDomainRoute("/feedback/")).toEqual({ kind: "form", slug: "feedback" });
@@ -18,6 +18,8 @@ test("custom domains map only forms, wall pages and the form's own API", () => {
   expect(customDomainRoute("/w/AbCdEfGh1234/opengraph-image")).toEqual({ kind: "wall", id: "AbCdEfGh1234" });
   expect(customDomainRoute("/api/collect/AbCdEfGh1234")).toEqual({ kind: "collect-api", spaceId: "AbCdEfGh1234" });
   expect(customDomainRoute("/api/collect/AbCdEfGh1234/spin")).toEqual({ kind: "collect-api", spaceId: "AbCdEfGh1234" });
+  expect(customDomainRoute("/api/collect/AbCdEfGh1234/polish")).toEqual({ kind: "collect-api", spaceId: "AbCdEfGh1234" });
+  expect(customDomainRoute("/api/e")).toEqual({ kind: "beacon" });
   expect(customDomainRoute("/_next/static/chunks/a.js")).toEqual({ kind: "asset" });
   for (const p of [
     "/app",
@@ -31,6 +33,8 @@ test("custom domains map only forms, wall pages and the form's own API", () => {
     "/a/b",
     "/i/token",
     "/w/x",
+    "/api/e/x",
+    "/api/collect/AbCdEfGh1234/other",
   ]) {
     expect(customDomainRoute(p), p).toBeNull();
   }
@@ -45,11 +49,11 @@ test("domain input is normalized and platform hosts are never custom", () => {
   expect(normalizeDomain("love.acme.com.")).toBe("love.acme.com");
   for (const bad of ["localhost", "10.0.0.1", "acme", "-x.acme.com", "love.acme.com:8080", "*.acme.com", "a..b.com"])
     expect(normalizeDomain(bad), bad).toBeNull();
-  expect(isPlatformHost("lovewall.tech", "lovewall.tech")).toBe(true);
+  expect(isPlatformHost("testimonials.example.com", "testimonials.example.com")).toBe(true);
   expect(isPlatformHost("localhost:3122", "localhost:3122")).toBe(true);
-  expect(isPlatformHost("127.0.0.1:3000", "lovewall.tech")).toBe(true);
-  expect(isPlatformHost("lovewall-git-main.vercel.app", "lovewall.tech")).toBe(true);
-  expect(isPlatformHost("love.acme.com", "lovewall.tech")).toBe(false);
+  expect(isPlatformHost("127.0.0.1:3000", "testimonials.example.com")).toBe(true);
+  expect(isPlatformHost("testimonials-git-main.vercel.app", "testimonials.example.com")).toBe(true);
+  expect(isPlatformHost("love.acme.com", "testimonials.example.com")).toBe(false);
 });
 
 test("answers are checked against their questions", () => {

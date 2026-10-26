@@ -32,6 +32,7 @@ export function toPublic(t: Testimonial): PublicTestimonial {
     videoEnd: t.video_end ?? null,
     highlight: t.highlight ?? null,
     captions: t.captions && !t.spam ? `${env.appUrl}/api/captions/${t.id}` : null,
+    rewarded: t.rewarded ?? false,
   };
 }
 

@@ -30,13 +30,13 @@
             inputmode="url"
             autocomplete="off"
             spellcheck="false"
-            placeholder="https://lovewall.tech"
+            placeholder="https://wall.example.com"
           />
         </div>
         <div class="field">
           <div class="label-row">
             <label for="api-key">API key</label>
-            <a id="get-key" target="_blank" rel="noreferrer">Get a key</a>
+            <a id="get-key" target="_blank" rel="noreferrer" hidden>Get a key</a>
           </div>
           <input class="input" id="api-key" type="password" autocomplete="off" spellcheck="false" placeholder="lw_…" />
         </div>
@@ -45,6 +45,11 @@
           <p class="status" id="status" aria-live="polite"></p>
         </div>
       </form>
+
+      <label class="toggle" for="auto-approve">
+        <span>Approve on save</span>
+        <input type="checkbox" id="auto-approve" />
+      </label>
 
       <div class="foot">
         <p class="muted">The key stays in this browser.</p>

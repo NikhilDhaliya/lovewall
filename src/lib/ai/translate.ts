@@ -5,8 +5,8 @@ import { one, q } from "@/lib/db";
 import { LANGUAGES } from "@/lib/i18n/collect/languages";
 import { aiJson, quoteBlock, type AiResult } from "./client";
 
-// Translations of a testimonial, stored per language. Widgets set to a language show them; anything not translated
-// yet (or edited since) shows in its own words.
+// Translations of a testimonial, stored per language. Widgets set to a language show the ones a member approved;
+// anything not translated, not approved yet, or edited since shows in its own words.
 
 export const sourceHash = (text: string) => createHash("md5").update(text, "utf8").digest("hex");
 
@@ -16,7 +16,7 @@ export function languageName(code: string) {
 
 const schema = z.object({ translation: z.string().max(6000), highlight: z.string().max(600) });
 
-export type Translation = { lang: string; text: string; highlight: string | null };
+export type Translation = { lang: string; text: string; highlight: string | null; approved?: boolean };
 
 export async function translateTestimonial(id: string, lang: string): Promise<AiResult<Translation>> {
   const name = languageName(lang);
@@ -46,19 +46,22 @@ highlight: ${t.highlight ? "the part of your translation that translates the phr
   await q(
     `insert into testimonial_translations (testimonial_id, space_id, lang, text, highlight, source_hash) values ($1, $2, $3, $4, $5, $6)
      on conflict (testimonial_id, lang) do update set text = excluded.text, highlight = excluded.highlight,
-       source_hash = excluded.source_hash, created_at = now()`,
+       source_hash = excluded.source_hash, created_at = now(), approved_at = null, approved_by = null, discarded_at = null`,
     [id, t.space_id, lang, text, highlight, sourceHash(t.text)],
   );
-  return { ok: true, data: { lang, text, highlight } };
+  return { ok: true, data: { lang, text, highlight, approved: false } };
 }
 
-// Current translations (made from the testimonial's text as it is now) for a set of testimonials.
+// What the public may see: approved translations made from the testimonial's text as it is now.
+export const SHOWN = "tr.approved_at is not null and tr.discarded_at is null and tr.source_hash = md5(t.text)";
+
+// Shown translations (see SHOWN) for a set of testimonials: what widgets and the public API use.
 export async function translationsFor(ids: string[], lang: string): Promise<Map<string, Translation>> {
   if (!ids.length || !lang) return new Map();
   const rows = await q<{ testimonial_id: string; text: string; highlight: string | null }>(
     `select tr.testimonial_id, tr.text, tr.highlight from testimonial_translations tr
      join testimonials t on t.id = tr.testimonial_id
-     where tr.testimonial_id = any($1) and tr.lang = $2 and tr.source_hash = md5(t.text)`,
+     where tr.testimonial_id = any($1) and tr.lang = $2 and ${SHOWN}`,
     [ids, lang],
   );
   return new Map(rows.map((r) => [r.testimonial_id, { lang, text: r.text, highlight: r.highlight }]));

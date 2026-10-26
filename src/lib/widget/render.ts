@@ -144,6 +144,12 @@ function quote(t: PublicTestimonial, clamp = false) {
   }`;
 }
 
+// The giver got a reward for this testimonial: said on every layout that shows the words, and not a setting.
+export const REWARDED_TEXT = "Got a reward for this review";
+function rewarded(t: Pick<PublicTestimonial, "rewarded">) {
+  return t.rewarded ? `<div class="lw-rew">${REWARDED_TEXT}</div>` : "";
+}
+
 type CardOpts = { clamp?: boolean; tags?: boolean };
 
 function card(t: PublicTestimonial, c: WidgetConfig, opts: CardOpts = {}) {
@@ -154,7 +160,7 @@ function card(t: PublicTestimonial, c: WidgetConfig, opts: CardOpts = {}) {
     rating || date || src ? `<div class="lw-head">${rating || "<span></span>"}<div class="lw-meta">${date}${src}</div></div>` : "";
   // The wall page filters cards by tag ("|a|b|", so a tag never matches part of another).
   const tags = opts.tags ? ` data-tags="${esc(`|${t.tags.join("|")}|`)}"` : "";
-  return `<figure class="lw-card"${tags}>${head}${video(t)}${image(t)}${quote(t, opts.clamp)}${who(t, c)}</figure>`;
+  return `<figure class="lw-card"${tags}>${head}${video(t)}${image(t)}${quote(t, opts.clamp)}${rewarded(t)}${who(t, c)}</figure>`;
 }
 
 // Under the widget: "Made with Lovewall" (a switch) and "Report" (always; the wall page has its own footer).
@@ -200,7 +206,7 @@ function list(input: RenderInput) {
       t.name,
     )}</div>${sub ? `<div class="lw-sub">${esc(sub)}</div>` : ""}</figcaption>${
       date || src ? `<div class="lw-meta">${date}${src}</div>` : ""
-    }</div>${c.showRating ? stars(t.rating, 13) : ""}${video(t)}${image(t)}${quote(t)}</div></figure>`;
+    }</div>${c.showRating ? stars(t.rating, 13) : ""}${video(t)}${image(t)}${quote(t)}${rewarded(t)}</div></figure>`;
   });
   return `<div class="lw-list">${rows.join("")}</div>`;
 }
@@ -238,7 +244,7 @@ function gallery(input: RenderInput) {
     const sub = subtitle(t);
     return `<figure class="lw-tile">${image(t)}<figcaption class="lw-tile-cap">${c.showRating ? stars(t.rating, 12) : ""}<span class="lw-name">${esc(
       t.name,
-    )}</span>${sub ? `<span class="lw-sub">${esc(sub)}</span>` : ""}</figcaption></figure>`;
+    )}</span>${sub ? `<span class="lw-sub">${esc(sub)}</span>` : ""}</figcaption>${rewarded(t)}</figure>`;
   });
   return `<div class="lw-gal"${cols(c.columns)}>${tiles.join("")}</div>`;
 }
@@ -246,7 +252,7 @@ function gallery(input: RenderInput) {
 function single(input: RenderInput) {
   const t = input.items[0];
   const c = input.config;
-  return `<figure class="lw-single">${c.showRating ? stars(t.rating, 18) : ""}${video(t)}${image(t)}${quote(t)}${who(
+  return `<figure class="lw-single">${c.showRating ? stars(t.rating, 18) : ""}${video(t)}${image(t)}${quote(t)}${rewarded(t)}${who(
     t,
     c,
     c.showSource ? sourceBadge(t) : "",
@@ -261,7 +267,7 @@ function logoImg(t: PublicTestimonial, cls: string) {
 function heroQuote(input: RenderInput) {
   const t = input.items[0];
   const c = input.config;
-  return `<figure class="lw-hq">${c.showRating ? stars(t.rating, 20) : ""}<blockquote class="lw-text">${textHtml(t)}</blockquote>${who(
+  return `<figure class="lw-hq">${c.showRating ? stars(t.rating, 20) : ""}<blockquote class="lw-text">${textHtml(t)}</blockquote>${rewarded(t)}${who(
     t,
     c,
     logoImg(t, "lw-hq-logo"),
@@ -274,7 +280,7 @@ function videoOne(input: RenderInput) {
   const c = input.config;
   return `<figure class="lw-vid">${video(t)}${who(t, c, c.showRating ? stars(t.rating, 14) : "")}${
     t.text ? `<blockquote class="lw-text">${textHtml(t)}</blockquote>` : ""
-  }</figure>`;
+  }${rewarded(t)}</figure>`;
 }
 
 // Small cards that slide in at a corner of the page, one after another (see the runtime script).
@@ -285,7 +291,7 @@ function popup(input: RenderInput) {
     (t) =>
       `<figure class="lw-pc" hidden><div class="lw-pc-head">${avatar(t, c.showPhoto)}<div class="lw-id"><a class="lw-name lw-cover" href="${page}" target="_blank" rel="noopener">${esc(
         t.name,
-      )}</a>${c.showRating && t.rating ? stars(t.rating, 12) : `<div class="lw-sub">${esc(subtitle(t))}</div>`}</div></div><blockquote class="lw-text">${textHtml(t)}</blockquote>${c.popupDismiss ? `<button class="lw-x" type="button" aria-label="Close">${CLOSE_ICON}</button>` : ""}</figure>`,
+      )}</a>${c.showRating && t.rating ? stars(t.rating, 12) : `<div class="lw-sub">${esc(subtitle(t))}</div>`}</div></div><blockquote class="lw-text">${textHtml(t)}</blockquote>${rewarded(t)}${c.popupDismiss ? `<button class="lw-x" type="button" aria-label="Close">${CLOSE_ICON}</button>` : ""}</figure>`,
   );
   return `<aside class="lw-pop" aria-label="Testimonials" data-pos="${esc(c.popupPosition)}" data-delay="${c.popupDelay}" data-interval="${
     c.popupInterval
@@ -398,29 +404,29 @@ export function customCss(css: string | null | undefined): string {
   );
 }
 
-// Google review stars: Review + AggregateRating JSON-LD, only for what the widget actually shows (the visible
-// reviews and the average). Serialised so it can sit inside a <script> element: no "<", ">" or "&" survive.
-export function jsonLd(input: Pick<RenderInput, "space" | "items" | "summary">): string {
-  const { average, rated } = input.summary;
-  if (!average || !rated) return "";
-  const reviews = input.items
-    .filter((t) => t.rating && t.text)
-    .slice(0, 10)
-    .map((t) => ({
-      "@type": "Review",
-      author: { "@type": "Person", name: t.name },
-      datePublished: t.date.slice(0, 10),
-      reviewBody: t.text.slice(0, 1000),
-      reviewRating: { "@type": "Rating", ratingValue: t.rating, bestRating: 5, worstRating: 1 },
-    }));
+// Review markup for search engines: Review + AggregateRating JSON-LD, built only from rated testimonials the widget
+// shows that were collected through Lovewall's own forms and invites. Reviews imported from other sites are never
+// marked up (search engines reject third-party reviews, and the sites' terms forbid republishing them as yours).
+// Nothing is emitted when there is none. Serialised so it can sit inside a <script> element: no "<", ">" or "&".
+export function jsonLd(input: Pick<RenderInput, "space" | "items">): string {
+  const own = input.items.filter((t) => sourceKey(t.source) === "form" && t.rating && t.text);
+  if (!own.length) return "";
+  const average = Math.round((own.reduce((sum, t) => sum + (t.rating ?? 0), 0) / own.length) * 10) / 10;
+  const reviews = own.slice(0, 10).map((t) => ({
+    "@type": "Review",
+    author: { "@type": "Person", name: t.name },
+    datePublished: t.date.slice(0, 10),
+    reviewBody: t.text.slice(0, 1000),
+    reviewRating: { "@type": "Rating", ratingValue: t.rating, bestRating: 5, worstRating: 1 },
+  }));
   const data = {
     "@context": "https://schema.org",
     "@type": "Product",
     name: input.space.name,
     ...(input.space.website ? { url: input.space.website } : {}),
     ...(input.space.logo ? { image: input.space.logo } : {}),
-    aggregateRating: { "@type": "AggregateRating", ratingValue: average, reviewCount: rated, bestRating: 5, worstRating: 1 },
-    ...(reviews.length ? { review: reviews } : {}),
+    aggregateRating: { "@type": "AggregateRating", ratingValue: average, reviewCount: own.length, bestRating: 5, worstRating: 1 },
+    review: reviews,
   };
   return safeJson(data);
 }
@@ -491,6 +497,8 @@ a.lw-src:hover{color:var(--lw-ink)}
 .lw-clamp.lw-open{display:block;-webkit-line-clamp:unset;overflow:visible}
 .lw-more{align-self:flex-start;margin-top:-6px;padding:2px 0;border:0;background:none;font:inherit;font-size:13px;font-weight:550;color:var(--lw-muted);cursor:pointer;text-decoration:underline;text-decoration-color:var(--lw-line);text-underline-offset:3px}
 .lw-more:hover{color:var(--lw-ink)}
+.lw-rew{font-size:12px;line-height:1.4;color:var(--lw-faint)}
+.lw-rew::before{content:"";display:inline-block;width:5px;height:5px;margin:0 7px 2px 0;border-radius:50%;background:currentColor}
 .lw-video{position:relative;overflow:hidden;border-radius:max(0px,calc(var(--lw-r) - 8px));background:var(--lw-av);max-height:520px;margin:0 auto;width:100%}
 .lw-video video{display:block;width:100%;height:100%;object-fit:cover}
 .lw-play{position:absolute;inset:0;margin:auto;display:grid;place-items:center;width:52px;height:52px;border:0;border-radius:50%;background:rgba(0,0,0,.55);color:#fff;cursor:pointer;-webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px);transition:transform .2s cubic-bezier(.32,.72,0,1)}

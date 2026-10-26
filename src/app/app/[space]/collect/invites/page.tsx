@@ -3,8 +3,7 @@ import { Invites } from "@/components/app/collect/invites";
 import { ensureDefaultForm, listForms } from "@/lib/data/forms";
 import { one } from "@/lib/db";
 import { loadSpace } from "@/lib/data/load";
-import { env } from "@/lib/env";
-import { defaultInvite, listInvites, sentToday } from "@/lib/invites";
+import { defaultInvite, inviteQuota, listInvites } from "@/lib/invites";
 
 export const metadata: Metadata = { title: "Invites" };
 
@@ -19,9 +18,9 @@ export default async function InvitesPage(props: PageProps<"/app/[space]/collect
       spaceId={space.id}
       forms={forms.map((f) => ({ id: f.id, name: f.name }))}
       invites={await listInvites(space.id)}
-      quota={{ today: await sentToday(space.id), max: env.maxInvitesPerDay }}
+      quota={await inviteQuota(space)}
       defaults={defaultInvite(space.name)}
-      address={row?.business_address ?? ""}
+      hasAddress={Boolean(row?.business_address?.trim())}
     />
   );
 }

@@ -33,4 +33,5 @@ into the static pages; `E2E_PORT` and `E2E_SITE_PORT` move the test servers.
 - Database changes are new files in `db/migrations/` (never edit an applied one) and must be idempotent.
 - Widget HTML is built in `src/lib/widget/render.ts`: escape every value with `esc()`.
 
-By contributing you agree that your work is released under the AGPL-3.0 license (see [LICENSE](LICENSE)).
+By contributing you agree that your work is released under the AGPL-3.0 license (see [LICENSE](LICENSE)); changes
+to `public/embed.js` under the MIT license (LICENSE-embed) and to the WordPress plugin under GPL-2.0-or-later.

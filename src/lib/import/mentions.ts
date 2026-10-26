@@ -5,14 +5,13 @@ import { appLink, mentionsDigestMail } from "@/lib/mail";
 import { enqueue, flushOne } from "@/lib/outbox";
 import { getJson } from "./http";
 import { clip, htmlText, isoDate } from "./parse";
-import { BlockedError, ImportError } from "./types";
+import { ImportError } from "./types";
 
-// Mentions: each space's keywords, searched on Hacker News (Algolia, newest first) and Reddit (search.json). New
-// ones wait in the Mentions list; a daily digest email lists them.
+// Mentions: each space's keywords, searched on Hacker News through the Algolia HN API (newest first). New ones wait
+// in the Mentions list; a daily digest email lists them.
 
-export type MentionPlatform = "hackernews" | "reddit";
 export type FoundMention = {
-  platform: MentionPlatform;
+  platform: "hackernews";
   externalId: string;
   url: string;
   author: string;
@@ -32,9 +31,7 @@ type HnHit = {
   created_at?: string;
 };
 
-type RedditChild = { data?: { id?: string; title?: string; selftext?: string; author?: string; permalink?: string; created_utc?: number } };
-
-// Algolia and Reddit match loosely (stems, other fields): keep only posts that contain the keyword itself.
+// Algolia matches loosely (stems, other fields): keep only posts that contain the keyword itself.
 export function mentionsKeyword(text: string, keyword: string) {
   const k = keyword.trim().toLowerCase();
   return Boolean(k) && text.toLowerCase().includes(k);
@@ -61,28 +58,6 @@ export function hnMentions(hits: HnHit[], keyword: string): FoundMention[] {
   return out;
 }
 
-export function redditMentions(children: RedditChild[], keyword: string): FoundMention[] {
-  const out: FoundMention[] = [];
-  for (const c of children) {
-    const d = c.data ?? {};
-    const date = isoDate(Number(d.created_utc));
-    const text = String(d.selftext ?? "").trim();
-    if (!d.id || !d.permalink?.startsWith("/") || !date || !d.author || d.author === "[deleted]") continue;
-    if (!mentionsKeyword(`${d.title ?? ""} ${text}`, keyword)) continue;
-    out.push({
-      platform: "reddit",
-      externalId: d.id,
-      url: `https://www.reddit.com${d.permalink}`,
-      author: clip(d.author, 80),
-      title: clip(d.title, 200),
-      text: clip(text || d.title, 3000),
-      keyword,
-      postedAt: date,
-    });
-  }
-  return out;
-}
-
 export async function searchMentions(keywords: string[], since: Date) {
   const found: FoundMention[] = [];
   const errors: string[] = [];
@@ -98,17 +73,7 @@ export async function searchMentions(keywords: string[], since: Date) {
       found.push(...hnMentions(hn.hits ?? [], keyword));
       answered++;
     } catch (error) {
-      errors.push(error instanceof ImportError || error instanceof BlockedError ? error.message : "Hacker News failed");
-    }
-    try {
-      const rd = await getJson<{ data?: { children?: RedditChild[] } }>(
-        "Reddit",
-        `https://www.reddit.com/search.json?q=${query}&sort=new&t=week&limit=50&raw_json=1`,
-      );
-      found.push(...redditMentions(rd.data?.children ?? [], keyword).filter((m) => m.postedAt > since.toISOString()));
-      answered++;
-    } catch (error) {
-      errors.push(error instanceof ImportError || error instanceof BlockedError ? error.message : "Reddit failed");
+      errors.push(error instanceof ImportError ? error.message : "Hacker News failed");
     }
   }
   return { found, errors: [...new Set(errors)], answered };
@@ -129,7 +94,7 @@ export async function checkSpace(s: Settings): Promise<{ added: number; error: s
     );
     if (row) added++;
   }
-  // Nothing answering backs off; one platform failing (Reddit often refuses servers) is only reported.
+  // Nothing answering backs off; one keyword failing is only reported.
   const failed = answered === 0;
   const error = errors.length ? errors.join(" · ").slice(0, 200) : null;
   await q(
@@ -176,10 +141,10 @@ export async function sendDigests(limit = 20) {
   );
   let sent = 0;
   for (const s of spaces) {
-    const items = await q<{ id: string; platform: MentionPlatform; author: string; title: string; text: string; url: string }>(
+    const items = await q<{ id: string; author: string; title: string; text: string; url: string }>(
       `update mentions set notified = true where id in (
          select id from mentions where space_id = $1 and status = 'new' and not notified order by posted_at desc limit 50
-       ) returning id, platform, author, title, text, url`,
+       ) returning id, author, title, text, url`,
       [s.space_id],
     );
     await q("update mention_settings set digest_at = now() where space_id = $1", [s.space_id]);

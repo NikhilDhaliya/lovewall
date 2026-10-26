@@ -36,9 +36,11 @@ export default function SecurityPage() {
 
       <Section title="Reporting a vulnerability">
         <P>
-          Email <Mail address={contact.security} />. Tell us what you found, how to reproduce it and what it affects. We reply within 3
-          business days, keep you informed, and credit you when the fix ships if you want. There is no bounty programme, but we are grateful
-          and will say so publicly if you like.
+          Report it privately through{" "}
+          <A href="https://github.com/NikhilDhaliya/lovewall/security/advisories/new">GitHub’s vulnerability reporting</A> for the Lovewall
+          repository, or email <Mail address={contact.security} />. Tell us what you found, how to reproduce it and what it affects. We
+          reply within a week, keep you informed, and credit you when the fix ships if you want. There is no bounty programme, but we are
+          grateful and will say so publicly if you like.
         </P>
         <P>Please:</P>
         <Ul>

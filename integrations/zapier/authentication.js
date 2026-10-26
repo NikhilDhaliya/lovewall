@@ -1,6 +1,6 @@
-import { DEFAULT_APP_URL, apiUrl } from "./lib.js";
+import { apiUrl } from "./lib.js";
 
-// An API key from Lovewall (Settings, API keys) and the Lovewall address, for self-hosters.
+// The address of the Lovewall instance (hosted or self-hosted) and an API key from it (Settings, API keys).
 const authentication = {
   type: "custom",
   fields: [
@@ -9,8 +9,8 @@ const authentication = {
       label: "Lovewall URL",
       type: "string",
       required: true,
-      default: DEFAULT_APP_URL,
-      helpText: "Keep https://lovewall.tech unless you host Lovewall yourself.",
+      placeholder: "https://testimonials.example.com",
+      helpText: "The address of your Lovewall: the hosted service you signed up to, or your own server.",
     },
     {
       key: "api_key",

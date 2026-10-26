@@ -125,12 +125,14 @@ export async function addWebhook(
     if ((count?.n ?? 0) >= MAX_HOOKS_PER_SPACE) return fail(`Up to ${MAX_HOOKS_PER_SPACE} webhooks per space`);
     const secret = newSecret();
     const id = newId(12);
-    await q("insert into webhooks (id, space_id, kind, url, events, secret) values ($1, $2, 'webhook', $3, $4, $5)", [
+    // created_by: the hook goes when this person leaves the space or deletes their account (like their API keys).
+    await q("insert into webhooks (id, space_id, kind, url, events, secret, created_by) values ($1, $2, 'webhook', $3, $4, $5, $6)", [
       id,
       spaceId,
       url.data,
       [...new Set(events.data)],
       seal(secret),
+      user.id,
     ]);
     return ok({ hook: (await hookOf(spaceId, id))!, secret });
   });
@@ -138,15 +140,17 @@ export async function addWebhook(
 
 export async function updateWebhook(spaceId: string, id: string, input: { url: string; events: string[] }): Promise<Result<HookView>> {
   return guard(async () => {
-    const { space } = await owned(spaceId);
+    const { user, space } = await owned(spaceId);
     if (!space || !validId(id)) return fail("Not found");
     const url = targetSchema.safeParse(input.url);
     if (!url.success) return fail(firstIssue(url.error));
     const events = eventsSchema.safeParse(input.events);
     if (!events.success) return fail(firstIssue(events.error));
     const row = await one(
-      "update webhooks set url = $3, events = $4, updated_at = now() where id = $1 and space_id = $2 and kind = 'webhook' returning id",
-      [id, spaceId, url.data, [...new Set(events.data)]],
+      // Whoever points it somewhere new answers for it from now on.
+      `update webhooks set url = $3, events = $4, created_by = case when url = $3 then created_by else $5 end, updated_at = now()
+       where id = $1 and space_id = $2 and kind = 'webhook' returning id`,
+      [id, spaceId, url.data, [...new Set(events.data)], user.id],
     );
     if (!row) return fail("Not found");
     return ok((await hookOf(spaceId, id))!);
@@ -235,10 +239,11 @@ export async function connectChat(spaceId: string, kind: ChatKind, url: string):
     const limit = await rateLimit(`chat-connect:${user.id}`, 30, 3600);
     if (!limit.ok) return fail("Too many at once. Try again later.");
     const row = await one<{ id: string }>(
-      `insert into webhooks (id, space_id, kind, url, events) values ($1, $2, $3, $4, '{testimonial.created}')
-       on conflict (space_id, kind) where kind in ('slack', 'discord') do update set url = excluded.url, updated_at = now()
+      `insert into webhooks (id, space_id, kind, url, events, created_by) values ($1, $2, $3, $4, '{testimonial.created}', $5)
+       on conflict (space_id, kind) where kind in ('slack', 'discord')
+       do update set url = excluded.url, created_by = excluded.created_by, updated_at = now()
        returning id`,
-      [newId(12), spaceId, kind, parsed.data],
+      [newId(12), spaceId, kind, parsed.data, user.id],
     );
     const testId = await sendTest(spaceId, row!.id);
     return ok({ hook: (await hookOf(spaceId, row!.id))!, test: (await getDelivery(spaceId, testId))! });

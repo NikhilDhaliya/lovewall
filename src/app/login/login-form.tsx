@@ -15,16 +15,19 @@ export function LoginForm({
   github,
   google,
   defaultEmail = "",
+  socialFailed = false,
 }: {
   next: string;
   github: boolean;
   google: boolean;
   defaultEmail?: string;
+  // Back from GitHub or Google without a session (e.g. an email the provider hasn't verified).
+  socialFailed?: boolean;
 }) {
   const [step, setStep] = useState<"email" | "code">("email");
   const [email, setEmail] = useState(defaultEmail);
   const [code, setCode] = useState("");
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(socialFailed ? "Couldn’t sign in that way. Use your email." : null);
   const [pending, startTransition] = useTransition();
   const codeRef = useRef<HTMLInputElement>(null);
 
@@ -74,7 +77,7 @@ export function LoginForm({
 
   function social(provider: "github" | "google") {
     startTransition(async () => {
-      const { error } = await authClient.signIn.social({ provider, callbackURL: safeNext(next) });
+      const { error } = await authClient.signIn.social({ provider, callbackURL: safeNext(next), errorCallbackURL: "/login" });
       if (error) setError("Couldn’t sign in. Try again.");
     });
   }

@@ -70,7 +70,7 @@ export function accountDeletedMail(opts: { to: string; spaces: number }): Mail {
     subject: "Your Lovewall account is deleted",
     html: spaceLayout(inner, what, "Lovewall"),
     text: `${what}\n\n${note}`,
-    replyTo: hosted ? LEGAL.contact.privacy : null,
+    replyTo: (hosted && LEGAL.contact.privacy) || null,
   };
 }
 

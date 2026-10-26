@@ -7,7 +7,7 @@ import { copyMedia, type MediaJob } from "@/app/actions/import";
 import { importCsv } from "@/app/actions/testimonials";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/cn";
-import { csvToRows, type CsvPreset, type CsvRow } from "@/lib/csv";
+import { decodeText, fileToRows, type CsvPreset, type CsvRow } from "@/lib/csv";
 import { DropZone, OptionRow, plural, StatusChoice, StepFooter } from "./import-parts";
 
 const TEMPLATE =
@@ -15,15 +15,27 @@ const TEMPLATE =
 
 export type CsvMode = "csv" | CsvPreset;
 
-const HOW: Record<CsvPreset, { name: string; steps: string }> = {
-  senja: { name: "Senja", steps: "In Senja, open Proof, then ⋯ › Export all to CSV." },
-  testimonialto: { name: "Testimonial.to", steps: "In Testimonial.to, open your space, then Options › Export to CSV." },
+// Where each known export comes from. "move": another testimonial tool, whose photos and videos come too. Exports
+// without steps are recognised in any CSV file.
+const HOW: Record<CsvPreset, { name: string; steps?: string; move?: boolean; json?: boolean }> = {
+  senja: { name: "Senja", steps: "In Senja, open Proof, then ⋯ › Export all to CSV.", move: true },
+  testimonialto: { name: "Testimonial.to", steps: "In Testimonial.to, open your space, then Options › Export to CSV.", move: true },
+  google: {
+    name: "Google",
+    steps: "In Google Takeout, export Google Business Profile. Each location's folder has a reviews.json.",
+    json: true,
+  },
+  googleplay: { name: "Google Play", steps: "In Play Console, open Download reports › Reviews and download a month." },
+  yotpo: { name: "Yotpo" },
+  judgeme: { name: "Judge.me" },
 };
 
-export const csvTitle = (mode: CsvMode) => (mode === "csv" ? "CSV file" : `Move from ${HOW[mode].name}`);
+export const csvTitle = (mode: CsvMode) =>
+  mode === "csv" ? "CSV file" : HOW[mode].move ? `Move from ${HOW[mode].name}` : `${HOW[mode].name} export`;
 
-// A CSV file: any spreadsheet, or an export from Senja or Testimonial.to (recognised by its columns). Rows go in
-// first; photos, screenshots and videos in the export are then copied a few at a time, with a count at the end.
+// A CSV file: any spreadsheet, an export from Senja or Testimonial.to, or a review site's own export (recognised by
+// its columns). Rows go in first; photos, screenshots and videos in a Senja or Testimonial.to export are then copied a
+// few at a time, with a count at the end.
 export function CsvStep({ spaceId, mode, onDone }: { spaceId: string; mode: CsvMode; onDone: () => void }) {
   const [rows, setRows] = useState<CsvRow[] | null>(null);
   const [fileName, setFileName] = useState("");
@@ -36,7 +48,7 @@ export function CsvStep({ spaceId, mode, onDone }: { spaceId: string; mode: CsvM
   async function read(file?: File) {
     if (!file) return;
     if (file.size > 5 * 1024 * 1024) return toast.error("Up to 5 MB");
-    const parsed = csvToRows(await file.text(), 1000);
+    const parsed = fileToRows(decodeText(new Uint8Array(await file.arrayBuffer())), 1000);
     setFileName(file.name);
     setRows(parsed.rows);
     setMissing(parsed.missing);
@@ -89,23 +101,24 @@ export function CsvStep({ spaceId, mode, onDone }: { spaceId: string; mode: CsvM
 
   const how = mode === "csv" ? null : HOW[mode];
   const detected = preset ? `${HOW[preset].name} export · ` : "";
+  const json = Boolean(how?.json);
 
   return (
     <div className="flex min-h-full animate-view flex-col">
       <div className="space-y-4 px-5 pt-4 pb-5">
-        {how && (
+        {how?.steps && (
           <div className="text-[13.5px] leading-relaxed text-muted">
             <p>{how.steps}</p>
-            <p>Choose that file here. Photos and videos come too.</p>
+            <p>Choose that file here.{how.move ? " Photos and videos come too." : ""}</p>
           </div>
         )}
         <DropZone
-          label={fileName || "Choose a CSV file"}
+          label={fileName || (json ? "Choose a JSON file" : "Choose a CSV file")}
           detail={
             rows ? (missing.length ? `Missing column: ${missing.join(", ")}` : `${detected}${plural(rows.length, "row")}`) : undefined
           }
           error={missing.length > 0}
-          accept=".csv,text/csv"
+          accept={json ? ".json,application/json" : ".csv,text/csv"}
           autoFocus
           onFiles={(files) => void read(files[0])}
         />

@@ -1,9 +1,10 @@
 import "server-only";
 import { getJson } from "./http";
-import { clip, httpsOrNull } from "./parse";
-import { ImportError, type Importer } from "./types";
+import { clip } from "./parse";
+import { GoneError, ImportError, type Importer } from "./types";
 
-// A TikTok post through TikTok's oEmbed (no key): caption, author and the cover image.
+// A TikTok post through TikTok's oEmbed endpoint (no key): caption, author and the link. No cover image copy. Looked
+// up again every week (src/lib/import/recheck.ts), and removed once the post is gone.
 
 export function parseTikTok(input: string): string | null {
   const m = input.match(/^(?:https?:\/\/)?(?:www\.|m\.)?tiktok\.com\/@([\w.-]+)\/(?:video|photo)\/(\d{8,25})/i);
@@ -17,15 +18,19 @@ export const tiktok: Importer = {
   async fetch(input) {
     const url = parseTikTok(input);
     if (!url) throw new ImportError("Use a link to a TikTok post");
-    const data = await getJson<{ title?: string; author_name?: string; author_unique_id?: string; thumbnail_url?: string }>(
+    const data = await getJson<{ title?: string; author_name?: string; author_unique_id?: string }>(
       "TikTok",
       `https://www.tiktok.com/oembed?url=${encodeURIComponent(url)}`,
-    );
-    if (!data.author_name && !data.title) throw new ImportError("Post not found, or it's private");
+    ).catch((error) => {
+      if (error instanceof GoneError) throw new GoneError("Post not found, or it's private");
+      throw error;
+    });
+    if (!data.author_name && !data.title) throw new GoneError("Post not found, or it's private");
     return {
       label: clip(data.author_name ?? "", 80) || "TikTok",
       input: url,
       pick: "first",
+      note: "Removed here if the post is deleted",
       items: [
         {
           url,
@@ -34,7 +39,6 @@ export const tiktok: Importer = {
           text: clip(data.title, 3000),
           rating: null,
           date: null,
-          imageUrl: httpsOrNull(data.thumbnail_url),
         },
       ],
     };

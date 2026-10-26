@@ -7,7 +7,8 @@ import { RESERVED_SLUGS } from "@/lib/validation";
 export type DomainRoute =
   | { kind: "form"; slug: string | null } // "/" is the default form, "/<slug>" another form
   | { kind: "wall"; id: string } // a wall page of a widget in that space (and its share image)
-  | { kind: "collect-api"; spaceId: string } // the form's own submit, upload and spin calls
+  | { kind: "collect-api"; spaceId: string } // the form's own submit, upload, spin and spelling-help calls
+  | { kind: "beacon" } // the wall page's view and click counts (/api/e)
   | { kind: "asset" }; // scripts, styles and icons the pages load
 
 export function customDomainRoute(pathname: string): DomainRoute | null {
@@ -16,8 +17,9 @@ export function customDomainRoute(pathname: string): DomainRoute | null {
   if (/^\/(favicon\.ico|icon\.svg|icon|apple-icon(\.png)?|manifest\.webmanifest)$/.test(pathname)) return { kind: "asset" };
   const wall = pathname.match(/^\/w\/([0-9A-Za-z]{8,32})(?:\/opengraph-image(?:-[0-9a-z]+)?)?\/?$/);
   if (wall) return { kind: "wall", id: wall[1] };
-  const api = pathname.match(/^\/api\/collect\/([0-9A-Za-z]{8,32})(?:\/(?:upload|spin))?$/);
+  const api = pathname.match(/^\/api\/collect\/([0-9A-Za-z]{8,32})(?:\/(?:upload|spin|polish))?$/);
   if (api) return { kind: "collect-api", spaceId: api[1] };
+  if (pathname === "/api/e") return { kind: "beacon" };
   const form = pathname.match(/^\/([a-z0-9](?:[a-z0-9-]{0,38}[a-z0-9])?)\/?$/);
   if (form && !RESERVED_SLUGS.has(form[1])) return { kind: "form", slug: form[1] };
   return null;

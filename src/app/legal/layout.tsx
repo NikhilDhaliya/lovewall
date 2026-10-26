@@ -13,6 +13,7 @@ export const metadata: Metadata = { robots: { index: true, follow: true } };
 export default async function LegalLayout({ children }: LayoutProps<"/legal">) {
   await connection();
   if (!legalEnabled()) notFound();
+  const { contact } = LEGAL;
   return (
     <div className="min-h-dvh bg-canvas">
       <header className="border-b border-line">
@@ -34,12 +35,14 @@ export default async function LegalLayout({ children }: LayoutProps<"/legal">) {
           <span>
             {LEGAL.product} is operated by {LEGAL.operator}.
           </span>
-          <span>
-            Questions:{" "}
-            <a href={`mailto:${LEGAL.contact.legal}`} className="hover:text-ink">
-              {LEGAL.contact.legal}
-            </a>
-          </span>
+          {contact.legal && (
+            <span>
+              Questions:{" "}
+              <a href={`mailto:${contact.legal}`} className="hover:text-ink">
+                {contact.legal}
+              </a>
+            </span>
+          )}
         </div>
       </footer>
     </div>

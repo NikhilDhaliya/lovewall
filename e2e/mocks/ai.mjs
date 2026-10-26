@@ -188,6 +188,8 @@ export function handle(req, res, url) {
     req.on("data", (c) => (size += c.length));
     req.on("end", () => {
       if (req.headers.authorization !== "Token test-deepgram-key") return reply(res, 401, { err_msg: "Invalid credentials" });
+      // Every request must opt out of model improvement, as the privacy policy promises.
+      if (url.searchParams.get("mip_opt_out") !== "true") return reply(res, 400, { err_msg: "mip_opt_out missing" });
       log.push({ feature: "transcript", bytes: size, type: req.headers["content-type"] });
       const transcript = WORDS.map((w) => w[0]).join(" ");
       reply(res, 200, {

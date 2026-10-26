@@ -3,35 +3,38 @@
 // off: they only show on the hosted service or with LEGAL_PAGES=true).
 
 export const LEGAL = {
-  // The person or company that runs this instance. The hosted service names only this; no personal address.
+  // The person or company that runs this instance. The pages name only this; no personal address.
   operator: "Nikhil Dhaliya",
   product: "Lovewall",
-  domain: "lovewall.tech",
-  // Role addresses on the product domain. Each one is a real mailbox the operator reads.
+  // If you run this instance as a service on its own domain, name it here: the pages then switch on by themselves
+  // when APP_URL is on that domain (legalEnabledFor below). Empty = only LEGAL_PAGES=true shows them.
+  domain: "",
+  // Role addresses the operator reads. Empty = the pages say "the operator of this instance" and show no address;
+  // fill them in before the pages go live.
   contact: {
-    privacy: "privacy@lovewall.tech",
-    legal: "legal@lovewall.tech",
-    security: "security@lovewall.tech",
-    support: "support@lovewall.tech",
+    privacy: "",
+    legal: "",
+    security: "",
+    support: "",
   },
-  // Owner fills in: the city whose courts hear disputes. Empty = "the courts of India".
+  // The courts that hear disputes. An empty city means the courts of the country.
   jurisdiction: { country: "India", city: "" },
-  // Owner fills in: a postal address. CAN-SPAM wants one in every commercial email sent to US addresses (a PO box
-  // or a registered private mailbox qualifies). Empty = the footer omits it and the pages say "on request".
+  // A postal address for the footer of commercial email (CAN-SPAM asks for one; a PO box or a registered private
+  // mailbox qualifies). Empty = the footer omits it and the pages say "on request".
   postalAddress: "",
-  // The day the current version of the Terms and Privacy Policy took effect (YYYY-MM-DD). Empty = draft.
-  effectiveDate: "",
+  // The day the current version of the Terms and Privacy Policy took effect (YYYY-MM-DD).
+  effectiveDate: "2026-10-26",
   // Days of notice before a change to the Terms that makes things worse for customers applies.
   changeNoticeDays: 30,
   // Pricing, as the Terms and the refund policy describe it.
   plan: { monthlyUsd: 9, yearlyUsd: 90, trialDays: 14 },
-  // Owner decision (draft): an EU/UK representative under GDPR Art. 27 / UK GDPR. Empty = none appointed yet.
+  // A representative under GDPR Art. 27 / UK GDPR, if one is appointed. Empty = the pages don't mention one.
   euRepresentative: "",
   ukRepresentative: "",
-  // Owner decision (draft: on): invitation emails carry an open pixel and record link clicks, so reminders go only
-  // to people who did not open. Off = no pixel; clicks are still seen when someone opens the form.
+  // Invitation emails carry an open pixel and record link clicks, so reminders go only to people who did not open.
+  // Off = no pixel; clicks are still seen when someone opens the form.
   inviteTracking: true,
-  // Owner decision: refund on request within this many days of the first charge.
+  // Refund on request within this many days of any charge.
   refundDays: 14,
   // Liability cap: fees paid in the prior 12 months or this amount, whichever is greater.
   liabilityFloorUsd: 50,
@@ -41,13 +44,13 @@ export const LEGAL = {
   retention: {
     // Backups after an account deletion. Must stay at or above backupDays (a unit test checks).
     deletedAccountDays: 30,
-    // Owner confirms the plan: Supabase Pro keeps daily backups for 7 days (PITR, if bought, up to 28). Keep this true.
+    // How long the database provider keeps backups (Supabase Pro: daily backups for 7 days).
     backupDays: 7,
     sessionDays: 30,
     outboxSentDays: 7,
     outboxAnyDays: 30,
     rateLimitHours: 1,
-    unclaimedUploadHours: 24,
+    unclaimedUploadHours: 3,
     inviteTrackingDays: 90,
     widgetStatsDays: 400,
     apiLogDays: 30,
@@ -55,6 +58,8 @@ export const LEGAL = {
     serverLogDays: 30,
     auditLogDays: 365, // who did what with personal data (DPDP Rules ask for a year of logs)
     resolvedReportDays: 90,
+    // Hosted: a SHA-256 of a deleted account's email and its first sign-up date, so a new account gets no second trial.
+    signupHistoryDays: 365,
     giverLinkDays: 365, // the private link in a giver's receipt email
     fileCacheHours: 2, // how long browsers and CDNs may keep a photo or video after it is deleted (1 h file + 30 min link)
   },
@@ -118,6 +123,7 @@ export type LegalEnv = { APP_URL?: string; LEGAL_PAGES?: string };
 export function legalEnabledFor(env: LegalEnv): boolean {
   if (/^(1|true|yes)$/i.test(env.LEGAL_PAGES ?? "")) return true;
   if (/^(0|false|no)$/i.test(env.LEGAL_PAGES ?? "")) return false;
+  if (!LEGAL.domain) return false;
   try {
     const host = new URL(env.APP_URL ?? "").hostname;
     return host === LEGAL.domain || host.endsWith(`.${LEGAL.domain}`);
@@ -130,8 +136,16 @@ export function legalEnabled(): boolean {
   return legalEnabledFor(process.env as LegalEnv);
 }
 
-// The postal address in the footer of invite emails (CAN-SPAM): the space's own, else the operator's on the hosted
-// service. Owner decision pending: LEGAL.postalAddress is empty until it is made.
+// The host the pages describe: the instance's own (APP_URL).
+export function serviceHost(): string {
+  try {
+    return new URL(process.env.APP_URL ?? "").hostname || "this instance";
+  } catch {
+    return "this instance";
+  }
+}
+
+// The postal address in the footer of invite emails: the space's own, else the operator's on the hosted service.
 export function footerAddress(spaceAddress: string | null | undefined): string | null {
   return spaceAddress?.trim() || (legalEnabled() && LEGAL.postalAddress) || null;
 }

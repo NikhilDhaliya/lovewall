@@ -112,12 +112,41 @@ export async function listTranslations(spaceId: string, id: string): Promise<Res
     if (!space) return fail("Not found");
     if (limited) return fail(BUSY);
     if (!(await testimonialOf(spaceId, id))) return fail("Not found");
-    const rows = await q<{ lang: string; text: string; highlight: string | null }>(
-      `select tr.lang, tr.text, tr.highlight from testimonial_translations tr join testimonials t on t.id = tr.testimonial_id
-       where tr.testimonial_id = $1 and tr.space_id = $2 and tr.source_hash = md5(t.text) order by tr.created_at desc`,
+    const rows = await q<Translation & { approved: boolean }>(
+      `select tr.lang, tr.text, tr.highlight, tr.approved_at is not null as approved
+       from testimonial_translations tr join testimonials t on t.id = tr.testimonial_id
+       where tr.testimonial_id = $1 and tr.space_id = $2 and tr.source_hash = md5(t.text) and tr.discarded_at is null
+       order by tr.created_at desc`,
       [id, spaceId],
     );
     return ok(rows);
+  });
+}
+
+// A member reads a translation before widgets and the public API may show it (they are machine-made).
+export async function reviewTranslation(spaceId: string, id: string, lang: string, verdict: "approve" | "discard"): Promise<Result> {
+  return guard(async () => {
+    const { space, limited } = await member(spaceId, "translation-review", 600);
+    if (!space) return fail("Not found");
+    if (limited) return fail(BUSY);
+    if (!languageName(String(lang)) || (verdict !== "approve" && verdict !== "discard")) return fail("Not found");
+    if (!(await testimonialOf(spaceId, id))) return fail("Not found");
+    const user = await actionUser();
+    const row =
+      verdict === "approve"
+        ? await one(
+            `update testimonial_translations set approved_at = now(), approved_by = $4, discarded_at = null
+             where testimonial_id = $1 and space_id = $2 and lang = $3 returning lang`,
+            [id, spaceId, lang, user.id],
+          )
+        : await one(
+            `update testimonial_translations set discarded_at = now(), approved_at = null, approved_by = null
+             where testimonial_id = $1 and space_id = $2 and lang = $3 returning lang`,
+            [id, spaceId, lang],
+          );
+    if (!row) return fail("Not found");
+    await refreshWidgets(spaceId);
+    return ok(null);
   });
 }
 

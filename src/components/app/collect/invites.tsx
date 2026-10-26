@@ -4,7 +4,8 @@ import { FileUp, Loader2, Send } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useRef, useState } from "react";
 import { toast } from "sonner";
-import { saveBusinessAddress, sendInviteBatch } from "@/app/actions/invites";
+import { sendInviteBatch } from "@/app/actions/invites";
+import { Link } from "@/components/app/link";
 import { Group, GroupRow } from "@/components/app/grouped";
 import { Page, PageHeader } from "@/components/app/shell";
 import { Button } from "@/components/ui/button";
@@ -32,14 +33,15 @@ export function Invites({
   invites,
   quota: initialQuota,
   defaults,
-  address: initialAddress,
+  hasAddress,
 }: {
   spaceId: string;
   forms: { id: string; name: string }[];
   invites: InviteListItem[];
   quota: { today: number; max: number };
   defaults: { subject: string; message: string };
-  address: string;
+  // The space's mailing address (Settings) goes in every invite's footer.
+  hasAddress: boolean;
 }) {
   const router = useRouter();
   const [formId, setFormId] = useState(forms[0]?.id ?? "");
@@ -51,8 +53,6 @@ export function Invites({
   const [busy, setBusy] = useState(false);
   const [quota, setQuota] = useState(initialQuota);
   const csvInput = useRef<HTMLInputElement>(null);
-  const [address, setAddress] = useState(initialAddress);
-  const savedAddress = useRef(initialAddress);
   const recipients = parseRecipients(people);
   const valid = recipients.filter((r) => r.email).length;
   const left = Math.max(0, quota.max - quota.today);
@@ -82,7 +82,7 @@ export function Invites({
     setBusy(false);
     if (!res.ok) return toast.error(res.error);
     const r = res.data;
-    setQuota((q) => ({ ...q, today: r.today }));
+    setQuota({ today: r.today, max: r.max });
     const skipped = [
       r.unsubscribed && `${r.unsubscribed} unsubscribed`,
       r.duplicates && `${r.duplicates} repeated`,
@@ -178,31 +178,6 @@ export function Invites({
                 {"{name}"} becomes their first name. Each email has their own link.
               </p>
             </div>
-            <div className="p-4">
-              <label htmlFor="invite-address" className="mb-2 block text-[13px] font-medium text-muted">
-                Postal address
-              </label>
-              <textarea
-                id="invite-address"
-                rows={2}
-                value={address}
-                maxLength={300}
-                placeholder="Optional"
-                onChange={(e) => setAddress(e.target.value)}
-                onBlur={async () => {
-                  if (address === savedAddress.current) return;
-                  const res = await saveBusinessAddress(spaceId, address);
-                  if (!res.ok) return toast.error(res.error);
-                  savedAddress.current = res.data.address;
-                  toast.success("Address saved");
-                }}
-                className={textareaClass}
-                aria-describedby="invite-address-hint"
-              />
-              <p id="invite-address-hint" className="mt-1.5 text-[13px] text-muted">
-                Shown in the footer, as anti-spam laws ask.
-              </p>
-            </div>
             <GroupRow label="Reminder">
               <Select<string>
                 aria-label="Reminders"
@@ -226,6 +201,14 @@ export function Invites({
               )}
             </GroupRow>
           </Group>
+          {!hasAddress && (
+            <p className="pt-2 text-[13px] text-muted" data-testid="no-address">
+              No mailing address in the footer yet.{" "}
+              <Link href={`/app/${spaceId}/settings#address`} className="font-medium text-ink underline underline-offset-2">
+                Add
+              </Link>
+            </p>
+          )}
           <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
             <p className="text-[13px] text-muted tabular-nums">
               {quota.today} of {quota.max} sent today

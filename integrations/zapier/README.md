@@ -2,7 +2,7 @@
 
 A Zapier CLI app (zapier-platform-core 19, ES modules) on the Lovewall REST API.
 
-- **Connection:** Lovewall URL (default `https://lovewall.tech`, change it for a self-hosted Lovewall) and an API key.
+- **Connection:** the Lovewall URL (hosted or your own server) and an API key.
   Zapier tests it with `GET /api/v1/space` and names the connection after the space.
 - **Triggers (instant, REST hooks):** New Testimonial (`testimonial.created`), Testimonial Approved
   (`testimonial.approved`). Turning a Zap on calls `POST /hooks`, turning it off `DELETE /hooks/{id}`. Samples come
@@ -11,7 +11,7 @@ A Zapier CLI app (zapier-platform-core 19, ES modules) on the Lovewall REST API.
   a dropdown of the inbox).
 - API errors show Lovewall's own message; a revoked key asks the user to reconnect.
 
-## Publish (owner)
+## Publish
 
 1. Install the CLI and log in (one time):
    ```sh
@@ -29,7 +29,7 @@ A Zapier CLI app (zapier-platform-core 19, ES modules) on the Lovewall REST API.
    Zap with each trigger and action, turn it on, add a testimonial in Lovewall and check it arrives within seconds.
    Then turn the Zap off and check the hook is gone.
 4. In the [developer platform](https://developer.zapier.com), fill **Integration home**: logo (`src/app/icon.svg`
-   as a 256×256 PNG), description, category (Marketing), homepage `https://lovewall.tech`, and the auth help text.
+   as a 256×256 PNG), description, category (Marketing), homepage (the repository or your Lovewall) and the auth help text.
 5. Invite a few testers with `zapier users:add <email> <version>` (or a share link). Zapier asks for live Zaps from
    users before public listing.
 6. **Publish** → submit for review. Zapier checks naming, help text, samples and that every trigger and action works.

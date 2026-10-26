@@ -1,16 +1,18 @@
 import { sourceLabel } from "./sources";
 
 // A small RFC 4180 CSV parser (quotes, escaped quotes, commas and newlines inside quotes, BOM, CRLF). Lenient about a
-// stray quote inside a quoted field (Testimonial.to exports don't escape them): it stays a quote.
+// stray quote inside a quoted field (Testimonial.to exports don't escape them): it stays a quote. Semicolon and tab
+// separated files work too.
 export function parseCsv(input: string, maxRows = 5000): string[][] {
   const text = input.replace(/^\uFEFF/, "");
   const rows: string[][] = [];
   let row: string[] = [];
   let field = "";
   let quoted = false;
-  // Semicolon-separated exports (European Excel) are common; pick the delimiter from the header line.
+  // Semicolon-separated (European Excel) and tab-separated exports are common; pick the delimiter from the header line.
   const firstLine = text.slice(0, text.indexOf("\n") === -1 ? undefined : text.indexOf("\n"));
-  const delim = (firstLine.match(/;/g)?.length ?? 0) > (firstLine.match(/,/g)?.length ?? 0) ? ";" : ",";
+  const count = (c: string) => firstLine.split(c).length - 1;
+  const delim = [",", ";", "\t"].reduce((best, c) => (count(c) > count(best) ? c : best));
   for (let i = 0; i < text.length; i++) {
     const c = text[i];
     if (quoted) {
@@ -105,11 +107,24 @@ const ALIASES: Record<CsvField, string[]> = {
   headline: ["review title", "testimonial title"],
 };
 
-// Exports from Senja and Testimonial.to are recognised by their headers and read column by column (help docs and
-// their export code, 10-26). Keys are headers lowercased with spaces, dashes and underscores removed.
-export type CsvPreset = "senja" | "testimonialto";
+// Known exports are recognised by their headers and read column by column: moves from Senja and Testimonial.to (help
+// docs and their export code), and the review exports sites give business owners: Google Play Console, Yotpo and
+// Judge.me (CSV, their help docs and real files) and Google Business Profile from Google Takeout (JSON, below). Keys
+// are headers lowercased with spaces, dashes and underscores removed.
+export type CsvPreset = "senja" | "testimonialto" | "google" | "googleplay" | "yotpo" | "judgeme";
 
-const PRESETS: Record<CsvPreset, { detect: string[]; columns: Partial<Record<CsvField, string>> }> = {
+type Preset = {
+  // Columns that identify the export (all of them present).
+  detect: string[];
+  columns: Partial<Record<CsvField, string>>;
+  // A review site's export: every row gets this source, and these values where the export has none.
+  source?: string;
+  defaults?: Partial<Record<CsvField, string>>;
+  // Only rows whose value in this column is one of these (published reviews, not spam).
+  keep?: { column: string; values: string[] };
+};
+
+const PRESETS: Record<CsvPreset, Preset> = {
   senja: {
     detect: ["customername", "integration"],
     columns: {
@@ -144,6 +159,33 @@ const PRESETS: Record<CsvPreset, { detect: string[]; columns: Partial<Record<Csv
       poster: "imagethumbnail",
     },
   },
+  // Read by jsonToRows (Takeout's reviews.json); listed here for its source label.
+  google: { detect: [], columns: {}, source: "Google" },
+  // UTF-16 with a byte order mark (decodeText reads it). No reviewer names; the review link is a private Console link.
+  googleplay: {
+    detect: ["packagename", "starrating", "reviewtext"],
+    columns: { text: "reviewtext", headline: "reviewtitle", rating: "starrating", date: "reviewsubmitdateandtime" },
+    source: "Google Play",
+    defaults: { name: "Google Play user" },
+  },
+  yotpo: {
+    detect: ["reviewcontent", "reviewerdisplayname", "reviewscore"],
+    columns: {
+      name: "reviewerdisplayname",
+      text: "reviewcontent",
+      headline: "reviewtitle",
+      rating: "reviewscore",
+      date: "reviewcreationdate",
+    },
+    source: "Form",
+    keep: { column: "reviewstatus", values: ["published"] },
+  },
+  judgeme: {
+    detect: ["body", "reviewername", "curated"],
+    columns: { name: "reviewername", text: "body", headline: "title", rating: "rating", date: "reviewdate" },
+    source: "Form",
+    keep: { column: "curated", values: ["ok"] },
+  },
 };
 
 const squash = (h: string) =>
@@ -154,8 +196,8 @@ const squash = (h: string) =>
 
 export function detectPreset(header: string[]): CsvPreset | null {
   const keys = new Set(header.map(squash));
-  for (const [id, p] of Object.entries(PRESETS) as [CsvPreset, (typeof PRESETS)[CsvPreset]][]) {
-    if (p.detect.every((k) => keys.has(k))) return id;
+  for (const [id, p] of Object.entries(PRESETS) as [CsvPreset, Preset][]) {
+    if (p.detect.length && p.detect.every((k) => keys.has(k))) return id;
   }
   return null;
 }
@@ -196,11 +238,15 @@ function firstUrl(v: string | undefined, keep: (u: string) => boolean = () => tr
     .find((u) => /^https:\/\//.test(u) && keep(u));
 }
 
+const WORDS: Record<string, string> = { one: "1", two: "2", three: "3", four: "4", five: "5" };
+
 // Cleans a row the way its export means it: Senja's 0 rating is "none", its Postgres dates, attachments that mix
-// images and videos; Testimonial.to's "Title at Company", "|" lists, HLS links (not copyable) and upgrade notices.
+// images and videos; Testimonial.to's "Title at Company", "|" lists, HLS links (not copyable) and upgrade notices;
+// ratings written as words ("FIVE").
 function tidy(row: CsvRow, preset: CsvPreset | null): CsvRow {
   const r: CsvRow = {};
   for (const [k, v] of Object.entries(row) as [CsvField, string][]) if (v && !UPGRADE.test(v)) r[k] = v;
+  if (r.rating) r.rating = WORDS[r.rating.toLowerCase()] ?? r.rating;
   if (r.rating && !(Number(r.rating.replace(",", ".")) >= 1)) delete r.rating;
   if (r.date) {
     const d = r.date.replace(/^(\d{4}-\d\d-\d\d) (\d)/, "$1T$2").replace(/([+-]\d\d)$/, "$1:00");
@@ -218,19 +264,27 @@ function tidy(row: CsvRow, preset: CsvPreset | null): CsvRow {
       r.company = m[2];
     }
   }
-  // Native form answers in either tool: they were collected with a form, like Lovewall's own.
-  if (preset) r.source = r.source ? sourceLabel(r.source) : "Form";
+  const p = preset ? PRESETS[preset] : null;
+  if (p?.source) r.source = p.source;
+  // Native form answers in Senja or Testimonial.to: they were collected with a form, like Lovewall's own.
+  else if (p) r.source = r.source ? sourceLabel(r.source) : "Form";
+  for (const [k, v] of Object.entries(p?.defaults ?? {}) as [CsvField, string][]) r[k] ||= v;
   for (const k of Object.keys(r) as CsvField[]) if (r[k] === undefined) delete r[k];
   return r;
 }
 
-export function csvToRows(input: string, max = 1000): { rows: CsvRow[]; missing: CsvField[]; total: number; preset: CsvPreset | null } {
+export type Parsed = { rows: CsvRow[]; missing: CsvField[]; total: number; preset: CsvPreset | null };
+
+export function csvToRows(input: string, max = 1000): Parsed {
   const all = parseCsv(input, max + 1);
   if (all.length < 2) return { rows: [], missing: ["name", "text"], total: 0, preset: null };
   const preset = detectPreset(all[0]);
   const map = mapHeaders(all[0], preset);
-  const missing = (["name", "text"] as CsvField[]).filter((f) => map[f] === undefined);
-  const rows = all.slice(1, max + 1).map((r) => {
+  const missing = (["name", "text"] as CsvField[]).filter((f) => map[f] === undefined && !(preset && PRESETS[preset].defaults?.[f]));
+  const keep = preset ? PRESETS[preset].keep : undefined;
+  const keepAt = keep ? all[0].map(squash).indexOf(keep.column) : -1;
+  const kept = all.slice(1, max + 1).filter((r) => keepAt === -1 || keep!.values.includes((r[keepAt] ?? "").trim().toLowerCase()));
+  const rows = kept.map((r) => {
     const out: CsvRow = {};
     for (const [field, idx] of Object.entries(map) as [CsvField, number][]) {
       const v = (r[idx] ?? "").trim();
@@ -239,4 +293,47 @@ export function csvToRows(input: string, max = 1000): { rows: CsvRow[]; missing:
     return tidy(out, preset);
   });
   return { rows: rows.filter((r) => r.name || r.text || r.video), missing, total: all.length - 1, preset };
+}
+
+// Export files come as UTF-8 or, from some consoles, UTF-16 with a byte order mark.
+export function decodeText(bytes: Uint8Array): string {
+  if (bytes[0] === 0xff && bytes[1] === 0xfe) return new TextDecoder("utf-16le").decode(bytes);
+  if (bytes[0] === 0xfe && bytes[1] === 0xff) return new TextDecoder("utf-16be").decode(bytes);
+  return new TextDecoder("utf-8").decode(bytes);
+}
+
+// A CSV file, or a known JSON export.
+export function fileToRows(text: string, max = 1000): Parsed {
+  return /^\s*[[{]/.test(text) ? jsonToRows(text, max) : csvToRows(text, max);
+}
+
+type TakeoutReview = { reviewer?: { displayName?: string }; starRating?: string; comment?: string; createTime?: string };
+
+// Google translates some reviews: "(Translated by Google) …\n\n(Original)\n…". The author's own words are kept.
+const original = (comment: string) => comment.match(/\(Original\)\s*([\s\S]+)$/)?.[1]?.trim() ?? comment;
+
+// Google Business Profile reviews from Google Takeout: one reviews.json per location, {"reviews": [...]}.
+function jsonToRows(text: string, max: number): Parsed {
+  let data: unknown;
+  try {
+    data = JSON.parse(text);
+  } catch {
+    data = null;
+  }
+  const list = (data as { reviews?: unknown } | null)?.reviews;
+  if (!Array.isArray(list) || !list.every((r) => r && typeof r === "object" && "starRating" in r && "reviewer" in r)) {
+    return { rows: [], missing: ["name", "text"], total: 0, preset: null };
+  }
+  const rows = (list as TakeoutReview[]).slice(0, max).map((r) =>
+    tidy(
+      {
+        name: String(r.reviewer?.displayName ?? "").trim(),
+        text: original(String(r.comment ?? "").trim()),
+        rating: String(r.starRating ?? ""),
+        date: String(r.createTime ?? ""),
+      },
+      "google",
+    ),
+  );
+  return { rows: rows.filter((r) => r.name || r.text), missing: [], total: list.length, preset: "google" };
 }

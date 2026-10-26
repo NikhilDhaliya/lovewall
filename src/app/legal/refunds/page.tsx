@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { Doc, Mail, OwnerNote, P, Section, Ul } from "@/components/legal/doc";
+import { Doc, Mail, P, Section, Ul } from "@/components/legal/doc";
 import { LEGAL } from "@/lib/legal/config";
 
 export const metadata: Metadata = { title: "Refunds and cancellation" };
@@ -9,7 +9,7 @@ export default function RefundsPage() {
   return (
     <Doc
       title="Refunds and cancellation"
-      lead="Cancel whenever you like. If the service was not for you, ask for your money back in the first days."
+      lead={`Cancel whenever you like and keep access until the end of the period you paid for. Any charge can be refunded on request within ${refundDays} days.`}
     >
       <Section title="Trial">
         <P>
@@ -29,12 +29,12 @@ export default function RefundsPage() {
       <Section title="Refunds">
         <Ul>
           <li>
-            Within {refundDays} days of your first charge, ask and we refund it in full, no questions asked. Email{" "}
+            Within {refundDays} days of any charge (the first one or a renewal), ask and we refund that charge in full. Email{" "}
             <Mail address={contact.support} /> from your account address.
           </li>
           <li>
-            After that, charges for a period already started are not refunded, except where we end the service or where the law where you
-            live requires a refund.
+            After {refundDays} days, a charge for a period already started is not refunded, except where we end the service or where the law
+            where you live requires a refund.
           </li>
           <li>If we end the service or your account for reasons other than a breach, we refund the unused part of any prepaid period.</li>
           <li>Refunds go to the original payment method and are issued by Polar, usually within 5 to 10 business days.</li>
@@ -47,11 +47,6 @@ export default function RefundsPage() {
           invoices are in the Polar customer portal.
         </P>
       </Section>
-
-      <OwnerNote>
-        Owner’s decision: the refund window ({refundDays} days) and the “no questions asked” wording are drafts. Change refundDays in
-        config.ts.
-      </OwnerNote>
     </Doc>
   );
 }

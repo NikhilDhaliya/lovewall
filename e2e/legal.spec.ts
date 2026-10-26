@@ -2,7 +2,7 @@ import AxeBuilder from "@axe-core/playwright";
 import { expect, test, type Page } from "@playwright/test";
 import { spawn, type ChildProcess } from "node:child_process";
 import { createSpace, newContext, signIn, uniqueEmail } from "./helpers";
-import { legalEnabledFor } from "../src/lib/legal/config";
+import { LEGAL, legalEnabledFor } from "../src/lib/legal/config";
 
 // The legal pages: every one renders and passes axe, the links are where they must be, and a self-hosted instance
 // without LEGAL_PAGES shows none of it.
@@ -26,13 +26,12 @@ async function audit(page: Page, name: string) {
   expect(serious.map((v) => `${name}: ${v.id} (${v.nodes.length}) ${v.nodes[0]?.target.join(" ")}`)).toEqual([]);
 }
 
-test("legalEnabledFor: hosted domain or the flag", () => {
-  expect(legalEnabledFor({ APP_URL: "https://lovewall.tech" })).toBe(true);
-  expect(legalEnabledFor({ APP_URL: "https://app.lovewall.tech" })).toBe(true);
+test("legalEnabledFor: the flag only, since no service domain is configured", () => {
+  expect(LEGAL.domain).toBe("");
   expect(legalEnabledFor({ APP_URL: "https://testimonials.example.com" })).toBe(false);
   expect(legalEnabledFor({ APP_URL: "http://localhost:3000" })).toBe(false);
   expect(legalEnabledFor({ APP_URL: "http://localhost:3000", LEGAL_PAGES: "true" })).toBe(true);
-  expect(legalEnabledFor({ APP_URL: "https://lovewall.tech", LEGAL_PAGES: "false" })).toBe(false);
+  expect(legalEnabledFor({ APP_URL: "https://testimonials.example.com", LEGAL_PAGES: "false" })).toBe(false);
   expect(legalEnabledFor({})).toBe(false);
 });
 
@@ -55,22 +54,38 @@ test("the policies say what they must", async ({ request }) => {
   // React separates adjacent text nodes with comments; strip them before matching sentences.
   const terms = (await (await request.get("/legal/terms")).text()).replace(/<!--.*?-->/g, "");
   expect(terms).toContain("Nikhil Dhaliya");
-  expect(terms).toContain("legal@lovewall.tech");
+  // No contact address is configured in the repository: the pages name the operator instead of inventing one.
+  expect(terms).not.toContain("mailto:");
+  expect(terms).toContain("the operator of this instance");
+  expect(terms).not.toContain("lovewall.tech");
   expect(terms).toContain("AGPL-3.0");
   expect(terms).toMatch(/US \$50, whichever is greater/);
   expect(terms).toContain("laws of India");
-  expect(terms).not.toMatch(/@gmail|@getvik/);
+  expect(terms).toContain("Effective 26 October 2026");
+  expect(terms).not.toContain("Draft");
+  // No personal or third-party mailbox leaks into the policies.
+  expect(terms).not.toMatch(/@(gmail|outlook|yahoo|hotmail)\./);
   const privacy = await (await request.get("/legal/privacy")).text();
+  expect(privacy).not.toContain("lovewall.tech");
   for (const s of [
-    "privacy@lovewall.tech",
     "GDPR",
     "CCPA",
     "Digital Personal Data Protection Act",
     "Standard Contractual Clauses",
     "never sell",
+    "opt-out from model improvement",
+    "get a second free trial",
   ]) {
     expect(privacy, s).toContain(s);
   }
+  expect(privacy).not.toContain("We have not appointed a representative");
+  const refunds = (await (await request.get("/legal/refunds")).text()).replace(/<!--.*?-->/g, "");
+  expect(refunds).toContain("Within 14 days of any charge");
+  expect(refunds).toContain("until the end of the period you paid for");
+  const aup = (await (await request.get("/legal/acceptable-use")).text()).replace(/<!--.*?-->/g, "");
+  expect(aup).toContain("Got a reward for this review");
+  const security = (await (await request.get("/legal/security")).text()).replace(/<!--.*?-->/g, "");
+  expect(security).toContain("https://github.com/NikhilDhaliya/lovewall/security/advisories/new");
   const cookies = await (await request.get("/legal/cookies")).text();
   expect(cookies).toContain("lovewall.session_token");
   const subs = await (await request.get("/legal/subprocessors")).text();

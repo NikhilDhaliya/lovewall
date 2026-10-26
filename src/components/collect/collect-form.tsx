@@ -52,11 +52,11 @@ const CODES: Record<string, CollectKey> = {
   url: "errUrl",
 };
 
-async function presign(spaceId: string, formId: string, kind: string, blob: Blob, type: string) {
+async function presign(spaceId: string, formId: string, token: string, kind: string, blob: Blob, type: string) {
   const res = await fetch(`/api/collect/${spaceId}/upload`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ kind, type, size: blob.size, formId }),
+    body: JSON.stringify({ kind, type, size: blob.size, formId, token }),
   });
   const data = await res.json().catch(() => ({}));
   if (!res.ok) throw new Error(data.error ?? "Upload failed");
@@ -242,17 +242,17 @@ export function CollectForm({
       let posterKey: string | null = null;
       if (testimonial && photo && f.photo !== "off") {
         setBusy(dict.uploadingPhoto);
-        const up = await presign(space.id, form.id, "avatar", photo.blob, "image/jpeg");
+        const up = await presign(space.id, form.id, token, "avatar", photo.blob, "image/jpeg");
         await putWithProgress(up.url, photo.blob, "image/jpeg");
         avatarKey = up.key;
       }
       if (testimonial && mode === "video" && video) {
         setBusy(t(dict, "uploading", { pct: 0 }));
-        const up = await presign(space.id, form.id, "video", video.blob, video.type);
+        const up = await presign(space.id, form.id, token, "video", video.blob, video.type);
         await putWithProgress(up.url, video.blob, video.type, (p) => setBusy(t(dict, "uploading", { pct: Math.round(p * 100) })));
         videoKey = up.key;
         if (video.poster) {
-          const p = await presign(space.id, form.id, "poster", video.poster, "image/jpeg");
+          const p = await presign(space.id, form.id, token, "poster", video.poster, "image/jpeg");
           await putWithProgress(p.url, video.poster, "image/jpeg");
           posterKey = p.key;
         }

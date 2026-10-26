@@ -6,6 +6,7 @@ import { SpaceSettings } from "@/components/app/space-settings";
 import { IntegrationsSettings } from "@/components/integrations/settings";
 import { getDomain, vercelEnabled } from "@/lib/data/domains";
 import { loadSpace } from "@/lib/data/load";
+import { one } from "@/lib/db";
 import { listInvites, listMembers } from "@/lib/data/members";
 import { env } from "@/lib/env";
 
@@ -14,7 +15,11 @@ export const metadata: Metadata = { title: "Settings" };
 export default async function SpaceSettingsPage(props: PageProps<"/app/[space]/settings">) {
   const { space: spaceId } = await props.params;
   const { space, user, role } = await loadSpace(spaceId);
-  const [members, invites] = await Promise.all([listMembers(space.id), role === "owner" ? listInvites(space.id) : []]);
+  const [members, invites, extra] = await Promise.all([
+    listMembers(space.id),
+    role === "owner" ? listInvites(space.id) : [],
+    one<{ business_address: string | null }>("select business_address from spaces where id = $1", [space.id]),
+  ]);
   return (
     <SpaceSettings
       key={space.updated_at}
@@ -28,6 +33,7 @@ export default async function SpaceSettingsPage(props: PageProps<"/app/[space]/s
         website: space.website,
         brandColor: space.brand_color,
         notify: space.notify,
+        address: extra?.business_address ?? "",
       }}
       members={{
         spaceId: space.id,

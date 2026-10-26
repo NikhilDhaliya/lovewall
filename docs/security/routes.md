@@ -1,7 +1,7 @@
 # Routes: who may call what
 
-Every page, route handler and server action, with its access check, rate limit and input validation (audit of
-10-27). Keep this table current when a route is added.
+Every page, route handler and server action, with its access check, rate limit and input validation (see
+[audit.md](audit.md)). Keep this table current when a route is added.
 
 How to read it:
 
@@ -11,8 +11,12 @@ How to read it:
   `requireRole(space, "owner")`; `self` = the signed-in account only.
 - **Limits** are Postgres counters (`src/lib/rate-limit.ts`): `key max/window`. `ip` = keyed hash of the client IP
   (`src/lib/ip.ts`), `user` = account id, `space` = space id. Windows in seconds.
-- **Every dynamic request** (pages, API, embeds, files) also passes the proxy's per-IP flood gate: 1200 per minute
-  per server instance (`RATE_LIMIT_PER_MINUTE`, `src/lib/flood.ts`). Only static assets (`/_next/static`) skip it.
+- **Client IP** comes from one trusted source (`src/lib/client-ip.ts`): Vercel's own header; behind a proxy
+  (`TRUST_PROXY=1`) the last `X-Forwarded-For` entry or the single header named in `TRUST_PROXY_HEADER`; otherwise the
+  connection's address (`scripts/client-ip.cjs`); else one shared bucket (logged once).
+- **Every dynamic request** (pages, API, embeds, files, prefetches) also passes the proxy's per-IP flood gate: 1200 per
+  minute per server instance (`RATE_LIMIT_PER_MINUTE`, `src/lib/flood.ts`). Only build files (`/_next/static`,
+  `/_next/image`, `/favicon.ico`) skip it.
 - **Every signed-in server action** in the testimonials, widgets, integrations and reports files also counts against
   `actions:user 3000/3600` (`limitUser` in `src/lib/actions.ts`); the others have their own limits below.
 - **Headers**: CSP on every HTML page (nonce + `strict-dynamic` on dynamic pages, `'self' 'unsafe-inline'` on the
@@ -35,7 +39,7 @@ How to read it:
 | `/app/<space>` inbox, `/collect`, `/collect/<form>`, `/collect/<form>/results`, `/collect/invites`, `/mentions`, `/widgets`, `/widgets/<id>` | session | member (`loadSpace`) | – | ids by regex; every query scoped by `space.id` | locked plan shows the plan lock; a removed member gets 404 at once (membership read every request) |
 | `/app/<space>/settings` | session | member; AI, integrations, domain, activity sections owner only | – | – | editors see slug read-only, no notification switch |
 | `/<slug>`, `/<slug>/<form>` collect pages | public | – | `page:collect:ip 300/600` | slug regex | `noindex`; view counter `3/3600` per ip and form |
-| `/w/<id>` wall page (+ `opengraph-image`) | public | – | flood gate; ISR cache | id regex | unknown ids are 404 and never cached (no share image either) |
+| `/w/<id>` wall page (+ `opengraph-image`) | public | – | flood gate; ISR cache | id regex | unknown ids are 404 and never cached (no share image either); Report and "Made with Lovewall" link to `APP_URL`, also on custom domains |
 | `/r/<widget>` report form | public | – | `page:report:ip 60/600` | id regex | approved testimonials only |
 | `/t/<token>` giver's own testimonial | token | that testimonial | `giver-page:ip 60/600` | 24-char token regex | token stored as SHA-256, expires (`GIVER_LINK_DAYS`) |
 | `/i/<token>` invite unsubscribe page | token | – | `invite-unsub-page:ip 60/600` | HMAC token, constant-time compare | a button, not a GET, so link scanners can't unsubscribe |
@@ -45,12 +49,12 @@ How to read it:
 
 | Route | Methods | Auth | Role | Limit | Validation | Notes |
 |---|---|---|---|---|---|---|
-| `/api/auth/*` (Better Auth) | GET, POST | public / session | – | default `100/60` per ip and path; `send-verification-otp 3/60`; `sign-in/email-otp 6/60`; `otp-mail:<email> 6/3600` | Better Auth | 6-digit code, hashed, 10 min, 5 attempts; OAuth (GitHub/Google, only when configured) with a signed state, callback `<APP_URL>/api/auth/callback/<provider>`; no passwords; `Origin` must be `APP_URL` |
+| `/api/auth/*` (Better Auth) | GET, POST | public / session | – | default `100/60` per ip and path; `send-verification-otp 3/60`; `sign-in/email-otp 6/60`; `otp-mail:<email> 6/3600` | Better Auth | 6-digit code, hashed, 10 min, 5 attempts; OAuth (GitHub/Google, only when configured) with a signed state, callback `<APP_URL>/api/auth/callback/<provider>`, links or creates an account only with a provider-verified email; no passwords; `Origin` must be `APP_URL`; the ip is the app's (the route sets `x-lovewall-client-ip`, replacing any client copy) |
 | `/api/collect/<space>` submit | POST | public | – | `submit:ip-space 4/600`, `submit:ip 12/3600`, `submit:space MAX_SUBMISSIONS…/86400` (before any database work) | zod, 64 KB, signed form stamp (min 2.5 s, max 1 day), honeypot, upload keys verified and unclaimed | |
-| `/api/collect/<space>/upload` presign | POST | public | – | `upload:ip 30/600`, `upload:space 300/3600` | kind enum, type allowlist (no SVG), size cap per kind | PUT URL signs type and length; unclaimed uploads deleted after 24 h |
-| `/api/collect/<space>/polish` | POST | public | – | `polish:ip 8/600`, `polish:ip-day 30/86400`, `polish:space 120/3600` + space AI cap | zod, 16 KB, form stamp | only when the space turned grammar on |
+| `/api/collect/<space>/upload` presign | POST | public | – | `upload:ip 30/600`, `upload:space 300/3600`; unclaimed bytes in the last hour ≤ 300 MB per ip and 2 GB per space (more with a larger `MAX_VIDEO_MB`) | signed form stamp (before any limit or database work), kind enum, type allowlist (no SVG), size cap per kind | PUT URL signs type and length; unclaimed uploads deleted after 3 h |
+| `/api/collect/<space>/polish` | POST | public | – | `polish:ip 8/600`, `polish:ip-day 30/86400`, `polish:space 120/3600` + space AI cap | zod, 16 KB, form stamp | only when the space turned grammar on; also served on the space's custom domain |
 | `/api/collect/<space>/spin` | POST | public | – | `spin:ip 20/600` | claim token regex | prize picked server-side, once |
-| `/api/e` analytics beacon | POST | public | – | `hit:ip 300/3600`, `hit:widget 20000/3600`, per ip+widget | zod, 1 KB, same-origin only | bots ignored |
+| `/api/e` analytics beacon | POST | public | – | `hit:ip 300/3600`, `hit:widget 20000/3600`, per ip+widget; 25 sites per widget a day | zod, 1 KB; cross-site refused; counted only when `Sec-Fetch-Site: same-origin` and the Referer is that widget's `/embed/<id>` or `/w/<id>` | bots and requests without fetch metadata ignored; a wall page counts under its own host; also served on custom domains |
 | `/api/captions/<id>` | GET | public | – | `captions:ip 600/600` | id regex | spam has no captions |
 | `/api/files/<key>` | GET | public | – | flood gate | strict key regex, claimed uploads only | 302 to a presigned GET (2 h, hourly) |
 | `/api/invites/open/<token>` | GET | public | – | `invite-open:ip 120/600` | token | always the pixel |
@@ -82,7 +86,7 @@ zod or id regexes. Ids from the browser are always queried together with the che
 
 | File | Actions | Role | Limits |
 |---|---|---|---|
-| `account.ts` | `updateName`, `deleteAccount` | self | `account-name:user 60/3600`; `account-delete:user 5/3600` |
+| `account.ts` | `updateName`, `deleteAccount` | self | `account-name:user 60/3600`; `account-delete:user 5/3600`; deleting also removes the API keys and webhooks the account made in other spaces |
 | `billing.ts` | `startCheckout`, `openBillingPortal` | self | `checkout:user 10/600`; `billing-portal:user 20/600` |
 | `spaces.ts` | `createSpace` | self | `space-create:user 20/3600`, `MAX_SPACES_PER_USER` |
 | | `updateSpace` | member; slug and notify owner only | `space-update:user 600/3600` |
@@ -90,17 +94,18 @@ zod or id regexes. Ids from the browser are always queried together with the che
 | | `deleteSpace` | owner | `space-delete:user 20/3600` |
 | | `presignUpload` | member | `owner-upload:user 120/3600` |
 | `testimonials.ts` | `listTestimonials`, `setStatus`, `setFeatured`, `changeTags`, `deleteTestimonials`, `updateTestimonial` | member | `actions:user 3000/3600`; ≤ 500 ids a call |
-| | `addTestimonial`, `importFromX`, `importCsv` | member | `manual-add:user 300/3600`; `x-import:user 60/3600`; `csv-import:user 20/3600` + `csv-import-space 30/3600`, ≤ 1000 rows |
+| | `addTestimonial`, `importCsv` | member | `manual-add:user 300/3600`; `csv-import:user 20/3600` + `csv-import-space 30/3600`, ≤ 1000 rows |
 | `widgets.ts` | `createWidget`, `updateWidget`, `deleteWidget`, `duplicateWidget` | member | `actions:user 3000/3600`; `MAX_WIDGETS_PER_SPACE` |
 | `forms.ts` | `createForm`, `updateForm`, `deleteForm`, `addRewardCodes`, `clearRewardCodes` | member | `forms:<action>:user` 30–1200/3600; 50 forms |
-| `invites.ts` | `sendInviteBatch`, `saveBusinessAddress` | member | `invites:send:user 30/3600` + `MAX_INVITES_PER_SPACE_PER_DAY`; `invites:address:user 60/3600` |
+| `invites.ts` | `sendInviteBatch`, `saveBusinessAddress` (the mailing address in Settings) | member | `invites:send:user 30/3600` + `MAX_INVITES_PER_SPACE_PER_DAY`; hosted trial: 50 people a day per owner across spaces; `invites:address:user 60/3600` |
 | `members.ts` | `inviteMember`, `resendInvite`, `revokeInvite`, `makeOwner`, `removeMember` | owner | `invite:user 20/3600`, `invite-space 50/86400`; `members:user 60/3600` |
-| | `leaveSpace` | member (also when locked) | `members:user 60/3600` |
+| | `leaveSpace` | member (also when locked) | `members:user 60/3600`; leaving or being removed drops the person's API keys and webhooks in that space |
 | | `acceptInvite` | invited address | `invite-accept:user 20/3600` |
 | `domains.ts` | `saveDomain`, `checkDomain`, `removeDomain` | owner | `domains:<action>:user` 20–60/3600 |
 | `integrations.ts` | API keys, webhooks, deliveries, Slack/Discord | owner | `actions:user 3000/3600`; create key `30/3600`; webhook `30/3600`; test `30/600` per space; retry `60/600` per space; chat `30/3600` |
 | `ai.ts` | settings | owner | `ai:settings:user 240/3600` |
 | | summaries, translations, transcripts, image reading, case studies, forms from a website | member | `ai:<action>:user` 10–600/3600, `ai:day:user 3000/86400`, space AI caps (`AI_MAX_CALLS_PER_SPACE_PER_DAY`) |
+| | `reviewTranslation` (approve or discard; widgets and the public API show approved translations only) | member | `ai:translation-review:user 600/3600` |
 | `import.ts` | find, import, sources, sync, screenshots, media copies | member | `import-*:user` and `:space` per action; media `200/3600` per user and space, `600/86400` per space |
 | `mentions.ts` | settings, list, check, status, save | member | `mentions-*:user` 30–600/3600, `mentions-check:space 12/3600` |
 | `replies.ts` | `replyToTestimonial` | member | `reply:user 30/3600`, `reply-to:testimonial 3/86400`, `reply-space 100/86400` |

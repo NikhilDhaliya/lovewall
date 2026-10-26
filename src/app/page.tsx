@@ -10,14 +10,16 @@ import { cn } from "@/lib/cn";
 import { defaultConfig } from "@/lib/widget/config";
 import { widgetBody, widgetCss } from "@/lib/widget/render";
 import { SAMPLES } from "@/lib/widget/samples";
+import { summarize } from "@/lib/widget/select";
 
 const GITHUB = "https://github.com/NikhilDhaliya/lovewall";
 const appUrl = (process.env.APP_URL || "http://localhost:3000").replace(/\/$/, "");
+// Plan and trial copy exists only on an instance that bills (POLAR_ACCESS_TOKEN set when this page is built).
+const billing = Boolean(process.env.POLAR_ACCESS_TOKEN);
 
 export const metadata: Metadata = {
   title: { absolute: "Lovewall: open-source testimonials" },
-  description:
-    "Collect testimonials with one link and show a wall of love on your site. Open source: free to self-host, or $9/mo hosted with a 14-day trial.",
+  description: "Collect testimonials with one link and show a wall of love on your site. Open source and free to self-host.",
   alternates: { canonical: "/" },
 };
 
@@ -32,14 +34,20 @@ function GitHubIcon({ className }: { className?: string }) {
   );
 }
 
+// Read from senja.io/pricing and testimonial.to/pricing on 26 October 2026 (links under the table). Only rows both
+// pages state are listed.
 const COMPARE: { row: string; us: string | boolean; senja: string | boolean; tto: string | boolean }[] = [
-  { row: "Price", us: "Free self-hosted · $9/mo hosted", senja: "$0–59 / mo", tto: "$0–95 / mo" },
+  {
+    row: "Price",
+    us: billing ? "Free self-hosted · $9/mo hosted" : "Free, self-hosted",
+    senja: "$0, $29 or $59 / mo",
+    tto: "$0, $25, $50 or $95 / mo",
+  },
   { row: "Testimonials on the free plan", us: "Unlimited", senja: "15", tto: "10 text, 2 video" },
-  { row: "Unlimited video", us: "Included", senja: "From $29 / mo", tto: "From $50 / mo" },
-  { row: "Remove their branding", us: "Included", senja: "From $29 / mo", tto: "Not checked" },
-  { row: "Custom domain", us: "Included", senja: "From $29 / mo", tto: "Not checked" },
-  { row: "API and webhooks", us: "Included", senja: "Not checked", tto: "From $50 / mo" },
-  { row: "Team members", us: "Included", senja: "From $59 / mo", tto: "Not checked" },
+  { row: "Unlimited testimonials", us: "Included", senja: "From $29 / mo", tto: "Text from $25, video from $50 / mo" },
+  { row: "Custom domain", us: "Included", senja: "From $29 / mo", tto: "From $25 / mo" },
+  { row: "API and webhooks", us: "Included", senja: "From $29 / mo", tto: "From $50 / mo" },
+  { row: "Team members", us: "Included", senja: "2 seats from $29, 5 from $59 / mo", tto: "From $50 / mo" },
   { row: "Self-host", us: true, senja: false, tto: false },
   { row: "Open source", us: "AGPL-3.0", senja: false, tto: false },
 ];
@@ -58,13 +66,16 @@ const MORE: { title: string; text: string }[] = [
   { title: "Your domain", text: "Forms and wall pages on love.yourcompany.com." },
   {
     title: "Import",
-    text: "Google, Trustpilot, G2, Capterra, Product Hunt, App Store, Google Play, Shopify, WordPress.org, Chrome Web Store, Yelp, X, Reddit, Hacker News, YouTube, TikTok, LinkedIn, Facebook, Instagram, screenshots and CSV.",
+    text: "From a link, through each site’s official API or feed: X, YouTube, TikTok, the App Store, WordPress.org and Hacker News. From the site’s own export file: Google, Google Play, Yotpo, Judge.me or any CSV. Or paste, screenshot, or save from any page with the browser extension.",
   },
   { title: "Move in", text: "Upload the CSV export from Senja or Testimonial.to. Photos and videos come too." },
-  { title: "Mentions", text: "Watch Hacker News and Reddit for your product’s name, with a daily email." },
+  { title: "Mentions", text: "Watch Hacker News for your product’s name, with a daily email." },
   { title: "Wall of love page", text: "Tag filters, your call to action, four styles, and a share image for social posts." },
   { title: "Video", text: "Recorded in the browser or uploaded, trimmed in the editor, with captions." },
-  { title: "Analytics", text: "Views, clicks and plays per widget, without cookies. Google review stars with JSON-LD. Custom CSS." },
+  {
+    title: "Analytics",
+    text: "Views, clicks and plays per widget, without cookies. Opt-in review markup for search engines (JSON-LD), built only from testimonials you collected yourself. Custom CSS.",
+  },
   {
     title: "Connect",
     text: "REST API and signed webhooks, Slack and Discord alerts, Zapier and Make, an MCP server for Claude, ChatGPT and Cursor, a Chrome extension, a WordPress plugin, and guides for 13 site builders.",
@@ -72,7 +83,7 @@ const MORE: { title: string; text: string }[] = [
   { title: "Team", text: "Invite people by email. Owners manage members and billing, editors do the rest." },
   {
     title: "AI, optional",
-    text: "Spam filter, sentiment tags, best-line highlights, summaries, spelling help for visitors, video transcripts and captions, translated widgets, case studies from answers. Hosted, it’s included; self-hosted, bring your own keys.",
+    text: "Spam filter, sentiment tags, best-line highlights, summaries, spelling help for visitors, video transcripts and captions, translated widgets, case studies from answers. Runs on Claude and Deepgram with your own keys; every feature hides without its key.",
   },
   {
     title: "Privacy",
@@ -83,7 +94,9 @@ const MORE: { title: string; text: string }[] = [
 const FAQ = [
   {
     q: "Is it free?",
-    a: "Self-hosting is free, with every feature. Hosted at lovewall.tech it’s $9 a month or $90 a year after a 14-day trial, no card needed. Same features either way. The code is AGPL-3.0.",
+    a: billing
+      ? "Self-hosting is free, with every feature. Hosted here it’s $9 a month or $90 a year after a 14-day trial, no card needed. Same features either way. The code is AGPL-3.0."
+      : "Yes. Self-hosting is free, with every feature, for as many testimonials as you like. The code is AGPL-3.0.",
   },
   { q: "Can I host it myself?", a: "Yes. One docker compose command, or Vercel with a Supabase database. Your data stays yours." },
   {
@@ -92,11 +105,11 @@ const FAQ = [
   },
   {
     q: "Can I move from another tool?",
-    a: "Upload the CSV export from Senja or Testimonial.to; photos and videos come along. Or import from Google, Trustpilot, G2, X and the other sources above.",
+    a: "Upload the CSV export from Senja or Testimonial.to; photos and videos come along. Google and Google Play exports work too, and App Store and X links import directly.",
   },
   {
     q: "Does it use AI?",
-    a: "Only if you want. The AI features run on Claude and Deepgram: on lovewall.tech they’re included; self-hosted, add your own keys, and without them they stay hidden. Every switch is per space.",
+    a: "Only if you want. The AI features run on Claude and Deepgram with your own keys; without them they stay hidden. Every switch is per space.",
   },
   {
     q: "Does it track my visitors?",
@@ -188,12 +201,14 @@ function Feature({
 export default function Landing() {
   const heroConfig = { ...defaultConfig("wall"), branding: false, showSource: true, max: 6 };
   const badgeConfig = { ...defaultConfig("badge"), showPhoto: false };
+  // The demos count the sample testimonials themselves: nothing on this page is a real customer's number.
+  const sampleSummary = summarize(SAMPLES, badgeConfig);
   const badge = widgetBody({
     widgetId: "demo",
     type: "badge",
     config: badgeConfig,
     items: SAMPLES,
-    summary: { average: 4.9, count: 128 },
+    summary: sampleSummary,
     space: { name: "Northwind", slug: "", logo: null, website: null },
     appUrl,
     mode: "page",
@@ -203,7 +218,7 @@ export default function Landing() {
     type: "wall",
     config: heroConfig,
     items: SAMPLES,
-    summary: { average: 4.8, count: 6 },
+    summary: sampleSummary,
     space: { name: "Northwind", slug: "", logo: null, website: null },
     appUrl,
     mode: "page",
@@ -255,7 +270,9 @@ export default function Landing() {
                 <GitHubIcon className="size-4" /> Star on GitHub
               </a>
             </div>
-            <p className="mt-5 text-[13px] text-faint">Free to self-host · $9/mo hosted, 14-day trial</p>
+            <p className="mt-5 text-[13px] text-faint">
+              {billing ? "Free to self-host · $9/mo hosted, 14-day trial" : "Free to self-host, every feature"}
+            </p>
           </div>
 
           <div className={cn(WRAP, "mt-14 sm:mt-20")}>
@@ -270,7 +287,7 @@ export default function Landing() {
                 <div className="pointer-events-none absolute inset-x-0 bottom-0 h-32 bg-gradient-to-t from-grouped to-transparent" />
               </div>
             </BrowserFrame>
-            <p className="mt-3 text-center text-[12px] text-faint">A Lovewall widget on a made-up product’s site.</p>
+            <p className="mt-3 text-center text-[12px] text-faint">Sample data: a Lovewall widget on a made-up product’s site.</p>
           </div>
         </section>
 
@@ -305,6 +322,7 @@ export default function Landing() {
               <BrowserFrame url="yoursite.com">
                 <div className="lw-step flex justify-center px-4 py-7" data-theme="auto" dangerouslySetInnerHTML={{ __html: badge }} />
               </BrowserFrame>
+              <p className="text-center text-[12px] text-faint">Sample data: the badge counts the made-up reviews above.</p>
             </div>
           </Feature>
         </div>
@@ -314,7 +332,7 @@ export default function Landing() {
           <h2 id="more" className={H2}>
             And the rest
           </h2>
-          <p className={LEAD}>Everything Senja and Testimonial.to do, in both plans.</p>
+          <p className={LEAD}>Forms, imports, widgets, a wall page, analytics, an API, integrations, teams and AI, in both plans.</p>
           <dl className="mt-8 divide-y divide-line border-y border-line">
             {MORE.map((m) => (
               <div key={m.title} className="grid gap-1 py-4 sm:grid-cols-[180px_1fr] sm:gap-6">
@@ -386,42 +404,61 @@ export default function Landing() {
               ))}
             </table>
           </div>
-          <p className="mt-3 text-[12px] text-faint">
-            From their public pricing pages, October 2026. “Not checked”: not on the page we read; it may be included or cost more.
+          <p className="mt-3 text-[12px] leading-relaxed text-faint">
+            Read from{" "}
+            <a
+              href="https://senja.io/pricing"
+              className="underline decoration-line underline-offset-2 hover:text-ink"
+              rel="noopener nofollow"
+            >
+              senja.io/pricing
+            </a>{" "}
+            and{" "}
+            <a
+              href="https://testimonial.to/pricing"
+              className="underline decoration-line underline-offset-2 hover:text-ink"
+              rel="noopener nofollow"
+            >
+              testimonial.to/pricing
+            </a>{" "}
+            on 26 October 2026; their plans may have changed since. Senja and Testimonial.to are trademarks of their owners. Lovewall isn’t
+            affiliated with them.
           </p>
         </section>
 
-        {/* Pricing */}
-        <section className={cn(WRAP, "mt-28 sm:mt-36")} aria-labelledby="pricing">
-          <h2 id="pricing" className={cn(H2, "scroll-mt-24")}>
-            Pricing
-          </h2>
-          <p className={LEAD}>Every feature in both. You choose who runs the server.</p>
-          <div className="mt-8 grid overflow-hidden rounded-[12px] bg-surface ring-1 ring-line sm:grid-cols-2">
-            <PricingColumn
-              title="Self-host"
-              price="Free"
-              note="On your own server"
-              points={["Every feature, your limits", "Your data in your Postgres", "AGPL-3.0 source code"]}
-            >
-              <a href={`${GITHUB}#self-host`} className={buttonClass("secondary", "lg", "w-full sm:w-auto")}>
-                Self-host guide
-              </a>
-            </PricingColumn>
-            <PricingColumn
-              title="Hosted"
-              price="$9"
-              per="/ month"
-              note="or $90 / year"
-              points={["Every feature, AI included", "14-day trial, no card", "We run it at lovewall.tech"]}
-              className="border-t border-line sm:border-t-0 sm:border-l"
-            >
-              <Link href="/login" className={buttonClass("primary", "lg", "w-full sm:w-auto")}>
-                Start free trial <ArrowRight className="size-4" />
-              </Link>
-            </PricingColumn>
-          </div>
-        </section>
+        {/* Pricing: only on an instance that bills. */}
+        {billing && (
+          <section className={cn(WRAP, "mt-28 sm:mt-36")} aria-labelledby="pricing">
+            <h2 id="pricing" className={cn(H2, "scroll-mt-24")}>
+              Pricing
+            </h2>
+            <p className={LEAD}>Every feature in both. You choose who runs the server.</p>
+            <div className="mt-8 grid overflow-hidden rounded-[12px] bg-surface ring-1 ring-line sm:grid-cols-2">
+              <PricingColumn
+                title="Self-host"
+                price="Free"
+                note="On your own server"
+                points={["Every feature, your limits", "Your data in your Postgres", "AGPL-3.0 source code"]}
+              >
+                <a href={`${GITHUB}#self-host`} className={buttonClass("secondary", "lg", "w-full sm:w-auto")}>
+                  Self-host guide
+                </a>
+              </PricingColumn>
+              <PricingColumn
+                title="Hosted"
+                price="$9"
+                per="/ month"
+                note="or $90 / year"
+                points={["Every feature, AI included", "14-day trial, no card", "We run the server"]}
+                className="border-t border-line sm:border-t-0 sm:border-l"
+              >
+                <Link href="/login" className={buttonClass("primary", "lg", "w-full sm:w-auto")}>
+                  Start free trial <ArrowRight className="size-4" />
+                </Link>
+              </PricingColumn>
+            </div>
+          </section>
+        )}
 
         {/* Self-host */}
         <section className={cn(WRAP, "mt-28 grid items-center gap-8 sm:mt-36 lg:grid-cols-2 lg:gap-14")} aria-labelledby="selfhost">

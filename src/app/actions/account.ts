@@ -16,6 +16,7 @@ import { spacePrefix, storageConfigured } from "@/lib/storage";
 import { nameSchema } from "@/lib/validation";
 import { logError } from "@/lib/log";
 import { vercelRemoveDomain } from "@/lib/data/domains";
+import { rememberSignup } from "@/lib/data/billing";
 
 export async function updateName(name: string): Promise<Result> {
   return guard(async () => {
@@ -28,9 +29,9 @@ export async function updateName(name: string): Promise<Result> {
   });
 }
 
-// Deletes the account: the spaces it owns (testimonials, widgets, files), its memberships in other spaces, its
-// sessions, mail still waiting to go out to it or on its behalf, and (hosted) its subscription. A last email
-// confirms it.
+// Deletes the account: the spaces it owns (testimonials, widgets, files), its memberships in other spaces with the API
+// keys, webhooks and chat links it made there (foreign keys cascade), its sessions, mail still waiting to go out to it
+// or on its behalf, and (hosted) its subscription. A last email confirms it.
 export async function deleteAccount(): Promise<Result> {
   return guard(async () => {
     const user = await actionUser();
@@ -53,6 +54,8 @@ export async function deleteAccount(): Promise<Result> {
     await q("delete from email_outbox where sent_at is null and (lower(to_email) = lower($1) or lower(reply_to) = lower($1))", [
       user.email,
     ]);
+    // Hosted: the address's first sign-up date stays (as a hash), so signing up again doesn't start a new trial.
+    if (env.billing) await rememberSignup(user.id);
     await q("delete from auth_users where id = $1", [user.id]);
     if (storageConfigured()) await trash(spaces.map((s) => spacePrefix(s.id)));
     const outboxId = await enqueue(accountDeletedMail({ to: user.email, spaces: spaces.length }));

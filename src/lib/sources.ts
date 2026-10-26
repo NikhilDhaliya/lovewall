@@ -1,8 +1,13 @@
+import type { CsvPreset } from "./csv";
 import { SOURCE_ICONS } from "./source-icons";
 
 // Every place a testimonial can come from: the inbox filter, the edit sheet's source list, the import sheet and the
 // widget's source label all read this list. Testimonials store the label ("Product Hunt"); sourceOf() maps any
 // stored value (labels, ids, aliases like "twitter") back to an entry. Pure module: safe on the client and server.
+//
+// Lovewall reads another site only through an official feed, API or oEmbed endpoint whose terms allow showing that
+// content on the customer's own site ("fetch"). Every other site is "hand": the owner brings reviews in with the
+// site's own export file, by paste, as a screenshot or with the browser extension.
 
 export type SourceId =
   | "form"
@@ -38,12 +43,13 @@ export type Source = {
   label: string;
   icon: string | null;
   group: "reviews" | "social" | "other";
-  // "fetch": the server reads it from a link. "paste": no public data, the owner pastes it (or a screenshot).
-  how?: "fetch" | "paste";
-  // Third-party key the source needs; without it the source is hidden.
-  needs?: "google" | "yelp";
+  how?: "fetch" | "hand";
+  // The site's own export file, which the CSV import reads (src/lib/csv.ts).
+  file?: CsvPreset;
   // Kept in sync by the daily job.
   sync?: boolean;
+  // An oEmbed post: looked up again every week, and removed once it is deleted (src/lib/import/recheck.ts).
+  recheck?: boolean;
   example?: string;
   aliases?: string[];
   match?: (url: URL) => boolean;
@@ -60,10 +66,8 @@ export const SOURCES: Source[] = [
     label: "Google",
     icon: SOURCE_ICONS.google,
     group: "reviews",
-    how: "fetch",
-    needs: "google",
-    sync: true,
-    example: "Maps link or business name",
+    how: "hand",
+    file: "google",
     aliases: ["google reviews", "google maps", "google business"],
     match: (u) =>
       (/(^|\.)google\.[a-z.]+$/i.test(u.hostname) && u.pathname.startsWith("/maps")) ||
@@ -77,9 +81,7 @@ export const SOURCES: Source[] = [
     label: "Trustpilot",
     icon: SOURCE_ICONS.trustpilot,
     group: "reviews",
-    how: "fetch",
-    sync: true,
-    example: "trustpilot.com/review/acme.com",
+    how: "hand",
     match: host(/(^|\.)trustpilot\.com$/),
   },
   {
@@ -87,9 +89,7 @@ export const SOURCES: Source[] = [
     label: "G2",
     icon: SOURCE_ICONS.g2,
     group: "reviews",
-    how: "fetch",
-    sync: true,
-    example: "g2.com/products/acme/reviews",
+    how: "hand",
     aliases: ["g2 crowd", "g2crowd"],
     match: host(/(^|\.)g2\.com$/),
   },
@@ -98,9 +98,7 @@ export const SOURCES: Source[] = [
     label: "Capterra",
     icon: SOURCE_ICONS.capterra,
     group: "reviews",
-    how: "fetch",
-    sync: true,
-    example: "capterra.com/p/123/Acme/reviews",
+    how: "hand",
     match: host(/(^|\.)capterra\.[a-z.]+$/),
   },
   {
@@ -108,9 +106,7 @@ export const SOURCES: Source[] = [
     label: "Product Hunt",
     icon: SOURCE_ICONS.producthunt,
     group: "reviews",
-    how: "fetch",
-    sync: true,
-    example: "producthunt.com/products/acme",
+    how: "hand",
     match: host(/(^|\.)producthunt\.com$/),
   },
   {
@@ -129,9 +125,8 @@ export const SOURCES: Source[] = [
     label: "Google Play",
     icon: SOURCE_ICONS.googleplay,
     group: "reviews",
-    how: "fetch",
-    sync: true,
-    example: "play.google.com/store/apps/details?id=com.acme",
+    how: "hand",
+    file: "googleplay",
     aliases: ["play store", "google play store", "android"],
     match: host(/^play\.google\.com$/),
   },
@@ -140,9 +135,7 @@ export const SOURCES: Source[] = [
     label: "Shopify",
     icon: SOURCE_ICONS.shopify,
     group: "reviews",
-    how: "fetch",
-    sync: true,
-    example: "apps.shopify.com/acme",
+    how: "hand",
     aliases: ["shopify app store"],
     match: host(/^apps\.shopify\.com$/),
   },
@@ -162,9 +155,7 @@ export const SOURCES: Source[] = [
     label: "Chrome Web Store",
     icon: SOURCE_ICONS.chromewebstore,
     group: "reviews",
-    how: "fetch",
-    sync: true,
-    example: "chromewebstore.google.com/detail/acme/abcdef…",
+    how: "hand",
     aliases: ["chrome", "chrome extension"],
     match: (u) =>
       /^chromewebstore\.google\.com$/i.test(u.hostname) ||
@@ -175,10 +166,7 @@ export const SOURCES: Source[] = [
     label: "Yelp",
     icon: SOURCE_ICONS.yelp,
     group: "reviews",
-    how: "fetch",
-    needs: "yelp",
-    sync: true,
-    example: "yelp.com/biz/acme-san-francisco",
+    how: "hand",
     match: host(/(^|\.)yelp\.[a-z.]+$/),
   },
   {
@@ -187,6 +175,7 @@ export const SOURCES: Source[] = [
     icon: SOURCE_ICONS.x,
     group: "social",
     how: "fetch",
+    recheck: true,
     example: "x.com/name/status/…",
     aliases: ["twitter"],
     match: host(/^(www\.|mobile\.)?(x|twitter)\.com$/),
@@ -196,7 +185,7 @@ export const SOURCES: Source[] = [
     label: "LinkedIn",
     icon: SOURCE_ICONS.linkedin,
     group: "social",
-    how: "paste",
+    how: "hand",
     match: host(/(^|\.)linkedin\.com$|^lnkd\.in$/),
   },
   {
@@ -204,8 +193,7 @@ export const SOURCES: Source[] = [
     label: "Reddit",
     icon: SOURCE_ICONS.reddit,
     group: "social",
-    how: "fetch",
-    example: "reddit.com/r/…/comments/…",
+    how: "hand",
     match: host(/(^|\.)reddit\.com$|^redd\.it$/),
   },
   {
@@ -224,6 +212,7 @@ export const SOURCES: Source[] = [
     icon: SOURCE_ICONS.youtube,
     group: "social",
     how: "fetch",
+    recheck: true,
     example: "youtube.com/watch?v=…",
     match: host(/(^|\.)youtube\.com$|^youtu\.be$/),
   },
@@ -233,6 +222,7 @@ export const SOURCES: Source[] = [
     icon: SOURCE_ICONS.tiktok,
     group: "social",
     how: "fetch",
+    recheck: true,
     example: "tiktok.com/@name/video/…",
     match: host(/(^|\.)tiktok\.com$/),
   },
@@ -241,7 +231,7 @@ export const SOURCES: Source[] = [
     label: "Facebook",
     icon: SOURCE_ICONS.facebook,
     group: "social",
-    how: "paste",
+    how: "hand",
     match: host(/(^|\.)(facebook|fb)\.com$|^fb\.watch$/),
   },
   {
@@ -249,7 +239,7 @@ export const SOURCES: Source[] = [
     label: "Instagram",
     icon: SOURCE_ICONS.instagram,
     group: "social",
-    how: "paste",
+    how: "hand",
     match: host(/(^|\.)instagram\.com$/),
   },
   { id: "email", label: "Email", icon: SOURCE_ICONS.email, group: "other", aliases: ["e-mail", "gmail", "mail"] },

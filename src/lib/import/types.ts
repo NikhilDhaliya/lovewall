@@ -12,36 +12,27 @@ export type Found = {
   title?: string | null;
   company?: string | null;
   handle?: string | null;
-  avatarUrl?: string | null;
-  // A picture kept with the testimonial (a video thumbnail).
-  imageUrl?: string | null;
 };
 
 export type Fetched = {
-  // What was found: the business, app, product or post title.
+  // What was found: the app, plugin or post title.
   label: string;
-  // The normalized link (or search), stored when the source is kept in sync.
+  // The normalized link, stored when the source is kept in sync.
   input: string;
   items: Found[];
-  // A short note for the preview ("Google shares 5 reviews at most").
+  // A short note for the preview.
   note?: string;
-  // Which items start ticked: all of them (review pages), the first (the linked comment), or none (a long thread).
+  // Which items start ticked: all of them (review feeds), the first (the linked post), or none (a long thread).
   pick?: "all" | "first" | "none";
 };
 
-// Each source is a module in this folder with this shape. fetch() throws ImportError (shown as is) or BlockedError
-// (the site refuses servers: the sheet offers paste or screenshot instead).
+// Each source is a module in this folder with this shape. fetch() throws ImportError, shown to the owner as is, or
+// GoneError when the post or page isn't there (deleted, private).
 export type Importer = {
   id: SourceId;
   fetch(input: string): Promise<Fetched>;
-  // Off when its API key is missing.
-  enabled?: () => boolean;
 };
 
 export class ImportError extends Error {}
 
-export class BlockedError extends Error {
-  constructor(site: string) {
-    super(`${site} blocks our server`);
-  }
-}
+export class GoneError extends ImportError {}

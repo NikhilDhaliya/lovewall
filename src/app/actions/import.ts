@@ -1,6 +1,5 @@
 "use server";
 
-import { after } from "next/server";
 import { z } from "zod";
 import { fail, guard, ok, refreshWidgets, type Result } from "@/lib/actions";
 import { one, q } from "@/lib/db";
@@ -9,19 +8,19 @@ import { getOwnedSpace } from "@/lib/data/spaces";
 import { newId } from "@/lib/ids";
 import { importerFor, IMPORTER_IDS } from "@/lib/import";
 import { copyRemote } from "@/lib/import/media";
-import { attachMedia, insertFound, newest } from "@/lib/import/save";
+import { insertFound, newest } from "@/lib/import/save";
 import { readScreenshots } from "@/lib/import/screenshot";
 import { syncSource, type ImportSourceRow } from "@/lib/import/sync";
-import { BlockedError, ImportError, type Found } from "@/lib/import/types";
+import { ImportError, type Found } from "@/lib/import/types";
 import { rateLimitAll } from "@/lib/rate-limit";
 import { actionUser } from "@/lib/session";
 import { sourceById, sourceLabel, type SourceId } from "@/lib/sources";
 import { emitTestimonialEvent } from "@/lib/webhooks";
 import { httpsUrl, optionalLine, sourceSchema, textSchema } from "@/lib/validation";
 
-// The import sheet: find reviews on another site (preview), import the ones picked, keep a source in sync, import
-// screenshots, and copy media from a CSV export. Every action checks the space, validates input and is rate limited
-// per user and per space (Postgres counters).
+// The import sheet: read reviews from a site's official feed, API or oEmbed endpoint (preview), import the ones
+// picked, keep a feed in sync, import screenshots, and copy media from a Senja or Testimonial.to export. Every action
+// checks the space, validates input and is rate limited per user and per space (Postgres counters).
 
 const MAX_CONNECTED = 20;
 
@@ -35,19 +34,16 @@ const limited = async (...limits: [string, number, number][]) => !(await rateLim
 const TOO_MANY = "Too many at once. Try again later.";
 
 export type PreviewItem = Found & { exists: boolean };
-export type Preview =
-  | {
-      status: "ok";
-      source: SourceId;
-      label: string;
-      input: string;
-      note: string | null;
-      pick: "all" | "first" | "none";
-      items: PreviewItem[];
-      syncable: boolean;
-      connected: boolean;
-    }
-  | { status: "blocked"; source: SourceId; site: string };
+export type Preview = {
+  source: SourceId;
+  label: string;
+  input: string;
+  note: string | null;
+  pick: "all" | "first" | "none";
+  items: PreviewItem[];
+  syncable: boolean;
+  connected: boolean;
+};
 
 const findSchema = z.object({ source: z.enum(IMPORTER_IDS), query: z.string().trim().min(1).max(500) });
 
@@ -60,12 +56,11 @@ export async function findReviews(spaceId: string, input: { source: string; quer
     if (await limited([`import-find:${user.id}`, 60, 3600], [`import-find-space:${spaceId}`, 100, 3600])) return fail(TOO_MANY);
     const importer = importerFor(parsed.data.source);
     const meta = sourceById(parsed.data.source)!;
-    if (!importer) return fail(`${meta.label} isn't set up here`);
+    if (!importer) return fail("Not found");
     let fetched;
     try {
       fetched = await importer.fetch(parsed.data.query);
     } catch (error) {
-      if (error instanceof BlockedError) return ok<Preview>({ status: "blocked", source: meta.id, site: meta.label });
       if (error instanceof ImportError) return fail(error.message);
       console.error(`[import] ${meta.id}`, (error as Error).message);
       return fail(`Couldn't read ${meta.label}. Try again.`);
@@ -81,7 +76,6 @@ export async function findReviews(spaceId: string, input: { source: string; quer
       await one("select 1 from import_sources where space_id = $1 and source = $2 and input = $3", [spaceId, meta.id, fetched.input]),
     );
     return ok<Preview>({
-      status: "ok",
       source: meta.id,
       label: fetched.label,
       input: fetched.input,
@@ -110,8 +104,6 @@ const foundSchema = z.object({
   title: optionalLine(80),
   company: optionalLine(80),
   handle: optionalLine(80),
-  avatarUrl: httpsUrl.nullable().optional().catch(null),
-  imageUrl: httpsUrl.nullable().optional().catch(null),
 });
 
 const importSchema = z.object({
@@ -162,10 +154,7 @@ export async function importFound(
       }
       valid.push({ ...r.data, name: r.data.name ?? `${meta.label} user`, rating: r.data.rating ?? null });
     }
-    const { saved, skipped } = await insertFound(spaceId, meta.label, valid, () => d.status);
-    // A few: copy avatars and thumbnails now, so they show at once. Many: in the background.
-    if (saved.length <= 10) await attachMedia(spaceId, saved);
-    else after(() => attachMedia(spaceId, saved).then(() => refreshWidgetsLater(spaceId)));
+    const { saved, skipped } = await insertFound(spaceId, meta.label, valid, () => d.status, Boolean(meta.recheck));
 
     if (sync) {
       await q(
@@ -179,12 +168,6 @@ export async function importFound(
     await refreshWidgets(spaceId);
     return ok({ added: saved.length, skipped: skipped + invalid, connected: Boolean(sync) });
   });
-}
-
-async function refreshWidgetsLater(spaceId: string) {
-  const { revalidateTag } = await import("next/cache");
-  const rows = await q<{ id: string }>("select id from widgets where space_id = $1", [spaceId]);
-  for (const r of rows) revalidateTag(`widget:${r.id}`, { expire: 0 });
 }
 
 // ---------- Connected sources ----------

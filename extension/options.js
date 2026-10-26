@@ -1,5 +1,6 @@
 /*! Save to Lovewall · options.js
- * App URL and API key. Save asks for the host (self-hosted only) and checks the key with GET /space. */
+ * App URL and API key. Save asks Chrome for access to that one site and checks the key with GET /space. "Approve on
+ * save" (off by default) is kept as soon as it changes. */
 (function () {
   "use strict";
 
@@ -19,6 +20,9 @@
   });
   form.addEventListener("submit", onSubmit);
   $("disconnect").addEventListener("click", disconnect);
+  $("auto-approve").addEventListener("change", function (e) {
+    chrome.storage.local.set({ autoApprove: e.target.checked });
+  });
 
   init();
 
@@ -26,28 +30,33 @@
     var s = await A.getSettings();
     urlInput.value = s.appUrl;
     keyInput.value = s.apiKey;
+    $("auto-approve").checked = s.autoApprove;
     updateKeyLink();
     $("disconnect").hidden = !s.apiKey;
     if (s.apiKey && s.spaceName) setStatus("Connected to " + s.spaceName, "ok");
-    if (!s.apiKey) keyInput.focus();
+    if (!s.appUrl) urlInput.focus();
+    else if (!s.apiKey) keyInput.focus();
   }
 
   function updateKeyLink() {
-    $("get-key").href = (A.normalizeAppUrl(urlInput.value) || A.DEFAULT_URL) + "/app";
+    var appUrl = A.normalizeAppUrl(urlInput.value);
+    $("get-key").hidden = !appUrl;
+    $("get-key").href = appUrl ? appUrl + "/app" : "#";
   }
 
   function onSubmit(e) {
     e.preventDefault();
     if (busy) return;
-    var appUrl = A.normalizeAppUrl(urlInput.value || A.DEFAULT_URL);
+    var appUrl = A.normalizeAppUrl(urlInput.value);
     var apiKey = keyInput.value.trim();
+    if (!urlInput.value.trim()) return invalid(urlInput, "Add your Lovewall address");
     if (!appUrl) return invalid(urlInput, /^\s*http:/i.test(urlInput.value) ? "Use an https address" : "Enter a valid URL");
     if (!apiKey) return invalid(keyInput, "Add your API key");
     if (!/^lw_[A-Za-z0-9]+$/.test(apiKey)) return invalid(keyInput, "Keys start with lw_");
 
     // Ask while the click still counts as a user gesture: nothing awaited before this call.
     var pattern = A.originPattern(appUrl);
-    var asked = pattern === A.originPattern(A.DEFAULT_URL) ? Promise.resolve(true) : chrome.permissions.request({ origins: [pattern] });
+    var asked = chrome.permissions.request({ origins: [pattern] });
     setBusy(true);
     asked
       .catch(function () {
@@ -74,9 +83,9 @@
     var name = String(space.name || "your space").slice(0, 80);
     var old = await A.getSettings();
     await chrome.storage.local.set({ appUrl: appUrl, apiKey: apiKey, spaceName: name });
-    // Let go of a self-hosted address that is no longer used.
-    var oldPattern = A.originPattern(old.appUrl);
-    if (oldPattern !== pattern && oldPattern !== A.originPattern(A.DEFAULT_URL)) {
+    // Let go of an address that is no longer used.
+    var oldPattern = old.appUrl ? A.originPattern(old.appUrl) : pattern;
+    if (oldPattern !== pattern) {
       chrome.permissions.remove({ origins: [oldPattern] }).catch(function () {});
     }
     urlInput.value = appUrl;

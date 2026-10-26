@@ -44,7 +44,8 @@ export async function transcribe(id: string): Promise<AiResult<{ text: string } 
   if (!(await reserve(t.space_id, "transcript"))) return { ok: false, error: "Daily AI limit reached", code: "cap" };
   let json: unknown;
   try {
-    const res = await fetch(`${aiEnv.deepgramUrl}/v1/listen?model=nova-3&smart_format=true&detect_language=true`, {
+    // mip_opt_out: the audio is not used to improve Deepgram's models (the privacy policy promises it).
+    const res = await fetch(`${aiEnv.deepgramUrl}/v1/listen?model=nova-3&smart_format=true&detect_language=true&mip_opt_out=true`, {
       method: "POST",
       headers: { Authorization: `Token ${aiEnv.deepgramKey}`, "Content-Type": file.type || "video/webm" },
       body: new Uint8Array(file.body),

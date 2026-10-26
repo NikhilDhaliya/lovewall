@@ -3,6 +3,7 @@
   "version": "1.0.0",
   "description": "Lovewall for Zapier: new testimonials in, testimonials created and approved out.",
   "private": true,
+  "license": "AGPL-3.0-only",
   "type": "module",
   "exports": "./index.js",
   "dependencies": {

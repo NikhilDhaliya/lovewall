@@ -1,6 +1,6 @@
 "use client";
 
-import { ArrowRight, ChevronRight, FileSpreadsheet, Images, Link2, MoveRight } from "lucide-react";
+import { ArrowRight, FileSpreadsheet, Images, Link2, MoveRight } from "lucide-react";
 import { useEffect, useState } from "react";
 import { listConnected, type Connected } from "@/app/actions/import";
 import { Button } from "@/components/ui/button";
@@ -8,8 +8,10 @@ import { inputClass } from "@/components/ui/field";
 import { Sheet } from "@/components/ui/sheet";
 import { SourceIcon } from "@/components/ui/source-icon";
 import { cn } from "@/lib/cn";
-import { detectSource, SOURCES, type Source } from "@/lib/sources";
+import { detectSource, SOURCES, toUrl, type Source } from "@/lib/sources";
 import { csvTitle, CsvStep, type CsvMode } from "./import-csv";
+import { HandStep } from "./import-hand";
+import { PickRow } from "./import-parts";
 import { ShotsStep } from "./import-shots";
 import { SourceStep } from "./import-source";
 import { SyncedList } from "./import-synced";
@@ -18,25 +20,24 @@ import type { EditPreset } from "./edit-sheet";
 type Step =
   | { kind: "home" }
   | { kind: "source"; source: Source; query: string }
+  | { kind: "hand"; source: Source; link: string }
   | { kind: "shots"; source?: string }
   | { kind: "csv"; mode: CsvMode };
 
-export type ImportKeys = { google: boolean; yelp: boolean };
-
-// One sheet for every import: paste any link (the source is detected) or pick a source, preview what's there,
-// import the ones you want. Also screenshots, CSV files, moving from Senja or Testimonial.to, and synced sources.
+// One sheet for every import: paste any link (the source is detected) or pick a source. Sites with an official feed,
+// API or oEmbed endpoint show a preview to import from; the others show how to bring their reviews in by hand (export
+// file, paste, screenshot, extension). Also screenshots, CSV files, moving from Senja or Testimonial.to, and synced
+// sources.
 export function ImportSheet({
   spaceId,
   open,
   onOpenChange,
-  keys,
   onImported,
   onPaste,
 }: {
   spaceId: string;
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  keys: ImportKeys;
   onImported: () => void;
   onPaste: (preset: EditPreset) => void;
 }) {
@@ -64,16 +65,10 @@ export function ImportSheet({
     };
   }, [open, spaceId]);
 
-  const available = (s: Source) => !s.needs || keys[s.needs];
   const detected = detectSource(link);
 
   function choose(s: Source, query = "") {
-    if (!available(s)) return;
-    if (s.how === "paste") {
-      onPaste({ source: s.label, url: query || undefined });
-      return;
-    }
-    setStep({ kind: "source", source: s, query });
+    setStep(s.how === "fetch" ? { kind: "source", source: s, query } : { kind: "hand", source: s, link: query });
   }
 
   function go(e?: React.FormEvent) {
@@ -81,7 +76,6 @@ export function ImportSheet({
     const value = link.trim();
     if (!value) return;
     if (!detected) return setLinkError("Not a link we know. Pick a source below.");
-    if (!available(detected)) return setLinkError(`${detected.label} isn't set up here`);
     choose(detected, value);
   }
 
@@ -91,7 +85,7 @@ export function ImportSheet({
   }
 
   const title =
-    step.kind === "source"
+    step.kind === "source" || step.kind === "hand"
       ? step.source.label
       : step.kind === "shots"
         ? "Screenshots"
@@ -115,7 +109,12 @@ export function ImportSheet({
           source={step.source}
           initialQuery={step.query}
           onDone={done}
-          onPaste={(url) => onPaste({ source: step.source.label, url: /^https?:\/\//i.test(url) ? url : undefined })}
+        />
+      ) : step.kind === "hand" ? (
+        <HandStep
+          source={step.source}
+          onFile={() => step.source.file && setStep({ kind: "csv", mode: step.source.file })}
+          onPaste={() => onPaste({ source: step.source.label, url: toUrl(step.link)?.href })}
           onShots={() => setStep({ kind: "shots", source: step.source.label })}
         />
       ) : step.kind === "shots" ? (
@@ -168,7 +167,7 @@ export function ImportSheet({
             </section>
           )}
 
-          <SourceGroup title="Review sites" sources={SOURCES.filter((s) => s.group === "reviews" && available(s))} onPick={choose} />
+          <SourceGroup title="Review sites" sources={SOURCES.filter((s) => s.group === "reviews")} onPick={choose} />
           <SourceGroup title="Social" sources={SOURCES.filter((s) => s.group === "social")} onPick={choose} />
 
           <section>
@@ -208,20 +207,5 @@ function SourceGroup({ title, sources, onPick }: { title: string; sources: Sourc
         ))}
       </div>
     </section>
-  );
-}
-
-// Rows in a hairline grid: a line under each row, and between the two columns on wider screens.
-function PickRow({ icon, label, onClick }: { icon: React.ReactNode; label: string; onClick: () => void }) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className="group -mb-px flex h-12 items-center gap-3 border-b border-line px-4 text-left text-[14.5px] transition-colors hover:bg-surface-2 focus-visible:bg-surface-2 focus-visible:outline-none sm:h-11 sm:text-[14px] sm:odd:border-r"
-    >
-      <span className="grid size-5 place-items-center text-ink">{icon}</span>
-      <span className="min-w-0 flex-1 truncate">{label}</span>
-      <ChevronRight className="size-4 text-faint transition-transform group-hover:translate-x-0.5" />
-    </button>
   );
 }

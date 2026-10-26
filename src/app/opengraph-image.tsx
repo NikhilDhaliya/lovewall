@@ -33,7 +33,7 @@ export default async function Image() {
       <div style={{ display: "flex", flexDirection: "column" }}>
         <div style={{ display: "flex", fontSize: 84, fontWeight: 500, letterSpacing: -3.2, lineHeight: 1.05 }}>Testimonials,</div>
         <div style={{ display: "flex", fontSize: 84, fontWeight: 500, letterSpacing: -3.2, lineHeight: 1.05 }}>open source.</div>
-        <div style={{ display: "flex", marginTop: 26, fontSize: 30, color: "#64635f" }}>Free to self-host. $9/mo hosted, 14-day trial.</div>
+        <div style={{ display: "flex", marginTop: 26, fontSize: 30, color: "#64635f" }}>Open source. Free to self-host, every feature.</div>
       </div>
       <div
         style={{

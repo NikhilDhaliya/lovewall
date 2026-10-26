@@ -45,10 +45,6 @@ createServer((req, res) => {
     res.writeHead(200, { "Content-Type": "application/json" });
     return res.end(JSON.stringify(oembed));
   }
-  if (url.pathname === "/syndication") {
-    res.writeHead(200, { "Content-Type": "application/json" });
-    return res.end(JSON.stringify({ user: { profile_image_url_https: `${SELF}/avatar.jpg` }, created_at: "2026-10-26T10:00:00.000Z" }));
-  }
   res.writeHead(404);
   res.end("not found");
 }).listen(PORT, "127.0.0.1");

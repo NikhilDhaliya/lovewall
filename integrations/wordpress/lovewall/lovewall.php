@@ -1,15 +1,15 @@
 <?php
 /**
  * Plugin Name:       Lovewall
- * Plugin URI:        https://lovewall.tech
+ * Plugin URI:        https://github.com/NikhilDhaliya/lovewall
  * Description:       Show your Lovewall testimonials with a shortcode or a block.
  * Version:           0.1.0
  * Requires at least: 6.3
  * Requires PHP:      7.4
  * Author:            Nikhil Dhaliya
- * Author URI:        https://lovewall.tech
- * License:           AGPL-3.0-or-later
- * License URI:       https://www.gnu.org/licenses/agpl-3.0.html
+ * Author URI:        https://github.com/NikhilDhaliya
+ * License:           GPL-2.0-or-later
+ * License URI:       https://www.gnu.org/licenses/gpl-2.0.html
  * Text Domain:       lovewall
  *
  * @package Lovewall
@@ -18,7 +18,7 @@
 defined( 'ABSPATH' ) || exit;
 
 const LOVEWALL_VERSION     = '0.1.0';
-const LOVEWALL_DEFAULT_URL = 'https://lovewall.tech';
+const LOVEWALL_DEFAULT_URL = '';
 
 /**
  * An http(s) origin without a trailing slash, or '' when the value is not one.
@@ -52,8 +52,7 @@ function lovewall_clean_url( $value ) {
  * @return string
  */
 function lovewall_app_url() {
-	$url = lovewall_clean_url( get_option( 'lovewall_app_url', LOVEWALL_DEFAULT_URL ) );
-	return '' === $url ? LOVEWALL_DEFAULT_URL : $url;
+	return lovewall_clean_url( get_option( 'lovewall_app_url', LOVEWALL_DEFAULT_URL ) );
 }
 
 /**
@@ -68,7 +67,7 @@ function lovewall_sanitize_app_url( $value ) {
 	}
 	$url = lovewall_clean_url( $value );
 	if ( '' === $url ) {
-		add_settings_error( 'lovewall_app_url', 'lovewall_app_url', __( 'Enter a web address like https://lovewall.tech.', 'lovewall' ) );
+		add_settings_error( 'lovewall_app_url', 'lovewall_app_url', __( 'Enter a web address like https://testimonials.example.com.', 'lovewall' ) );
 		return lovewall_app_url();
 	}
 	return $url;
@@ -85,14 +84,15 @@ function lovewall_widget_id( $id ) {
 }
 
 /**
- * The embed: a placeholder div that embed.js turns into the widget. Loads embed.js only on pages that use it.
+ * The embed: a placeholder div that embed.js turns into the widget. Loads embed.js only on pages that use it, and
+ * nothing at all until the Lovewall address is set.
  *
  * @param mixed $id Widget ID.
  * @return string
  */
 function lovewall_render( $id ) {
 	$id = lovewall_widget_id( $id );
-	if ( '' === $id ) {
+	if ( '' === $id || '' === lovewall_app_url() ) {
 		return '';
 	}
 	wp_enqueue_script( 'lovewall-embed' );
@@ -125,16 +125,18 @@ function lovewall_render_block( $attributes ) {
  * Registers the embed script (enqueued on demand), the shortcode and the block.
  */
 function lovewall_init() {
-	wp_register_script(
-		'lovewall-embed',
-		lovewall_app_url() . '/embed.js',
-		array(),
-		LOVEWALL_VERSION,
-		array(
-			'strategy'  => 'defer',
-			'in_footer' => true,
-		)
-	);
+	if ( '' !== lovewall_app_url() ) {
+		wp_register_script(
+			'lovewall-embed',
+			lovewall_app_url() . '/embed.js',
+			array(),
+			LOVEWALL_VERSION,
+			array(
+				'strategy'  => 'defer',
+				'in_footer' => true,
+			)
+		);
+	}
 	add_shortcode( 'lovewall', 'lovewall_shortcode' );
 	register_block_type( __DIR__ . '/block', array( 'render_callback' => 'lovewall_render_block' ) );
 }
@@ -195,7 +197,7 @@ function lovewall_settings_page() {
 					<th scope="row"><label for="lovewall_app_url"><?php esc_html_e( 'App URL', 'lovewall' ); ?></label></th>
 					<td>
 						<input name="lovewall_app_url" id="lovewall_app_url" type="url" class="regular-text code" value="<?php echo esc_attr( lovewall_app_url() ); ?>" />
-						<p class="description"><?php esc_html_e( 'Keep https://lovewall.tech unless you host Lovewall yourself.', 'lovewall' ); ?></p>
+						<p class="description"><?php esc_html_e( 'The address of your Lovewall: the hosted service you signed up to, or your own server. Widgets show once it is set.', 'lovewall' ); ?></p>
 					</td>
 				</tr>
 			</table>

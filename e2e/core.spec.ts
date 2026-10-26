@@ -249,7 +249,7 @@ test("import a CSV and add one by hand", async () => {
   await expect(page.getByText("3 rows")).toBeVisible();
   await page.getByRole("button", { name: /^Import 3$/ }).click();
   await expect(page.getByText("Imported 2 · skipped 1")).toBeVisible();
-  await expect(page.locator("[data-id]").filter({ hasText: "It compiles, ship it." })).toBeVisible();
+  await expect(page.locator("[data-id]").filter({ hasText: "Setup took one afternoon and the team kept using it." })).toBeVisible();
 
   await page.getByRole("button", { name: "Add" }).click();
   await page.getByRole("menuitem", { name: "Add manually" }).click();
@@ -337,18 +337,27 @@ test("public endpoints reject bad input, bots and floods", async ({ request }) =
     data: { name: "Bot", text: "spam", consent: true, token, website: "http://spam" },
   });
   expect(bot.status()).toBe(200);
-  // Uploads: wrong type and oversize files are refused before anything is stored.
+  // Uploads: the form's stamp is required; wrong type and oversize files are refused before anything is stored.
   const up = `/api/collect/${spaceId}/upload`;
-  expect((await request.post(up, { headers, data: { kind: "avatar", type: "image/svg+xml", size: 100 } })).status()).toBe(400);
-  expect((await request.post(up, { headers, data: { kind: "video", type: "video/mp4", size: 900 * 1024 * 1024 } })).status()).toBe(400);
+  expect((await request.post(up, { headers, data: { kind: "avatar", type: "image/png", size: 100 } })).status()).toBe(400);
+  expect((await request.post(up, { headers, data: { kind: "avatar", type: "image/svg+xml", size: 100, token } })).status()).toBe(400);
+  expect((await request.post(up, { headers, data: { kind: "video", type: "video/mp4", size: 900 * 1024 * 1024, token } })).status()).toBe(
+    400,
+  );
+  // A stamp is good for its own space only.
   expect(
-    (await request.post(`/api/collect/nope1234/upload`, { headers, data: { kind: "avatar", type: "image/png", size: 100 } })).status(),
-  ).toBe(404);
+    (
+      await request.post(`/api/collect/nope1234/upload`, { headers, data: { kind: "avatar", type: "image/png", size: 100, token } })
+    ).status(),
+  ).toBe(400);
   // Presign requests are rate limited per visitor.
   const presignIp = `10.98.${Math.floor(Math.random() * 250)}.${Math.floor(Math.random() * 250)}`;
   let limited = false;
   for (let i = 0; i < 40 && !limited; i++) {
-    const r = await request.post(up, { headers: { "x-real-ip": presignIp }, data: { kind: "avatar", type: "image/png", size: 100 } });
+    const r = await request.post(up, {
+      headers: { "x-real-ip": presignIp },
+      data: { kind: "avatar", type: "image/png", size: 100, token },
+    });
     if (r.status() === 429) limited = true;
   }
   expect(limited).toBe(true);

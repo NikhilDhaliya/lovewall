@@ -73,10 +73,11 @@ test("pure rules: no OAuth tokens, hashed session IPs, no log mail in production
   expect(withHashedIp({ ipAddress: "" }, (ip) => ip).ipAddress).toBeNull();
   expect(mailStartupCheck({ NODE_ENV: "development", MAIL_DRIVER: "log" })).toBe("ok");
   expect(mailStartupCheck({ NODE_ENV: "production", MAIL_DRIVER: "log" })).toBe("fail");
-  expect(mailStartupCheck({ NODE_ENV: "production", APP_URL: "https://lovewall.tech" })).toBe("fail");
   expect(mailStartupCheck({ NODE_ENV: "production", POLAR_ACCESS_TOKEN: "x" })).toBe("fail");
   expect(mailStartupCheck({ NODE_ENV: "production", APP_URL: "http://localhost:3000" })).toBe("warn");
-  expect(mailStartupCheck({ NODE_ENV: "production", SMTP_HOST: "smtp.example.com", APP_URL: "https://lovewall.tech" })).toBe("ok");
+  expect(mailStartupCheck({ NODE_ENV: "production", SMTP_HOST: "smtp.example.com", APP_URL: "https://testimonials.example.com" })).toBe(
+    "ok",
+  );
   expect(footerAddress("  1 Main St\nSpringfield ")).toBe("1 Main St\nSpringfield");
   // The policy's backup promise covers the database provider's backup window.
   expect(LEGAL.retention.deletedAccountDays).toBeGreaterThanOrEqual(LEGAL.retention.backupDays);

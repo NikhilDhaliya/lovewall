@@ -3,7 +3,7 @@ import { one, q } from "@/lib/db";
 
 export type Mention = {
   id: string;
-  platform: "hackernews" | "reddit";
+  platform: "hackernews";
   url: string;
   author: string;
   title: string;

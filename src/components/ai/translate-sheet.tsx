@@ -5,15 +5,13 @@ import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { listTranslations, translate } from "@/app/actions/ai";
 import { Button } from "@/components/ui/button";
-import { CopyButton } from "@/components/ui/copy";
 import { Select } from "@/components/ui/select";
 import { Sheet } from "@/components/ui/sheet";
 import type { Translation } from "@/lib/ai/translate";
 import { LANGUAGES } from "@/lib/i18n/collect/languages";
+import { TranslationList } from "./translation-list";
 
-const NAMES = new Map<string, string>(LANGUAGES.map((l) => [l.code, l.name]));
-
-// A testimonial in another language. Translations are kept, and widgets set to that language show them.
+// A testimonial in another language. Translations are kept; widgets set to that language show the approved ones.
 export function TranslateSheet({
   spaceId,
   testimonial,
@@ -69,30 +67,12 @@ export function TranslateSheet({
             {busy && <Loader2 className="size-4 animate-spin" />} Translate
           </Button>
         </div>
-        {list === null ? (
+        {list === null || !testimonial ? (
           <div className="h-16 animate-pulse rounded-[10px] bg-surface-2" aria-busy />
         ) : list.length === 0 ? (
           <p className="py-4 text-center text-[13.5px] text-muted">No translations yet</p>
         ) : (
-          <ul className="divide-y divide-line overflow-hidden rounded-[12px] ring-1 ring-line" data-testid="translations">
-            {list.map((t) => (
-              <li key={t.lang} className="px-4 py-3">
-                <div className="flex items-center justify-between gap-2">
-                  <span className="text-[13px] font-medium text-muted">{NAMES.get(t.lang) ?? t.lang}</span>
-                  <CopyButton
-                    text={t.text}
-                    iconOnly
-                    label={`Copy ${NAMES.get(t.lang) ?? t.lang}`}
-                    toastLabel="Copied"
-                    className="size-8 rounded-[8px] text-muted hover:bg-surface-2 hover:text-ink"
-                  />
-                </div>
-                <p lang={t.lang} className="mt-1 text-[14.5px] leading-[1.55] [overflow-wrap:anywhere] whitespace-pre-line">
-                  {t.text}
-                </p>
-              </li>
-            ))}
-          </ul>
+          <TranslationList spaceId={spaceId} testimonialId={testimonial.id} list={list} onChange={setList} />
         )}
       </div>
     </Sheet>

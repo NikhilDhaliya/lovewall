@@ -1,6 +1,6 @@
 import AxeBuilder from "@axe-core/playwright";
 import { chromium, expect, test, type BrowserContext, type CDPSession, type Page } from "@playwright/test";
-import { mkdtempSync, readFileSync, rmSync } from "node:fs";
+import { cpSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import vm from "node:vm";
@@ -11,7 +11,10 @@ const EXT = join(__dirname, "..", "extension");
 
 // The few extension APIs the tests call from extension pages.
 declare const chrome: {
-  storage: { local: { clear(): Promise<void> }; session: { set(items: object): Promise<void>; get(key: string): Promise<object> } };
+  storage: {
+    local: { clear(): Promise<void>; get(key: string): Promise<Record<string, unknown>> };
+    session: { set(items: object): Promise<void>; get(key: string): Promise<object> };
+  };
 };
 
 type Draft = { name: string; title: string; handle: string; source: string; source_url: string; text: string };
@@ -239,22 +242,22 @@ test.describe("extension: parse.js", () => {
 
 test.describe("extension: api.js", () => {
   test("app URLs: https origins, plain http only on this computer", () => {
-    expect(A.normalizeAppUrl("lovewall.tech")).toBe("https://lovewall.tech");
-    expect(A.normalizeAppUrl(" https://lovewall.tech/ ")).toBe("https://lovewall.tech");
+    expect(A.normalizeAppUrl("love.example.org")).toBe("https://love.example.org");
+    expect(A.normalizeAppUrl(" https://love.example.org/ ")).toBe("https://love.example.org");
     expect(A.normalizeAppUrl("https://wall.example.com/app/settings")).toBe("https://wall.example.com");
     expect(A.normalizeAppUrl("localhost:3000")).toBe("http://localhost:3000");
     for (const bad of [
       "",
-      "http://lovewall.tech",
+      "http://love.example.org",
       "javascript:alert(1)",
-      "https://u:p@lovewall.tech",
-      "ftp://lovewall.tech",
+      "https://u:p@love.example.org",
+      "ftp://love.example.org",
       "https://intranet",
     ]) {
       expect(A.normalizeAppUrl(bad), bad).toBe("");
     }
     expect(A.originPattern("http://localhost:3000")).toBe("http://localhost/*");
-    expect(A.originPattern("https://lovewall.tech")).toBe("https://lovewall.tech/*");
+    expect(A.originPattern("https://love.example.org")).toBe("https://love.example.org/*");
   });
 
   test("errors read as short lines", () => {
@@ -265,14 +268,14 @@ test.describe("extension: api.js", () => {
       error: message ? { message } : null,
       network: false,
     });
-    expect(A.messageFor({ ...r(0), network: true }, "https://lovewall.tech")).toBe("Can't reach lovewall.tech");
-    expect(A.messageFor(r(401), "https://lovewall.tech")).toBe("Check your API key");
-    expect(A.messageFor(r(403), "https://lovewall.tech")).toBe("This key is read-only");
-    expect(A.messageFor(r(409, "A testimonial with this source_url already exists"), "https://lovewall.tech")).toBe("Already saved");
-    expect(A.messageFor(r(422, "Add a name"), "https://lovewall.tech")).toBe("Add a name");
-    expect(A.messageFor(r(500), "https://lovewall.tech")).toBe("Something went wrong (500)");
+    expect(A.messageFor({ ...r(0), network: true }, "https://love.example.org")).toBe("Can't reach love.example.org");
+    expect(A.messageFor(r(401), "https://love.example.org")).toBe("Check your API key");
+    expect(A.messageFor(r(403), "https://love.example.org")).toBe("This key is read-only");
+    expect(A.messageFor(r(409, "A testimonial with this source_url already exists"), "https://love.example.org")).toBe("Already saved");
+    expect(A.messageFor(r(422, "Add a name"), "https://love.example.org")).toBe("Add a name");
+    expect(A.messageFor(r(500), "https://love.example.org")).toBe("Something went wrong (500)");
     expect(A.safeLink("javascript:alert(1)")).toBe("");
-    expect(A.safeLink("https://lovewall.tech/app/s1")).toBe("https://lovewall.tech/app/s1");
+    expect(A.safeLink("https://love.example.org/app/s1")).toBe("https://love.example.org/app/s1");
   });
 });
 
@@ -363,8 +366,23 @@ test.describe("extension: pages in headless Chrome", () => {
   let cdp: CDPSession;
   let id: string;
   let profile: string;
+  let copy: string;
+  // The test's Lovewall address. Headless Chrome can't answer the access prompt, so the test loads a copy of the
+  // extension that already holds this one host (as if the user had allowed it); the code still asks, and Chrome says yes.
+  const APP = "https://wall.example.com";
+
+  test("the manifest asks for no host up front", () => {
+    const manifest = JSON.parse(readFileSync(join(EXT, "manifest.json"), "utf8"));
+    expect(manifest.host_permissions).toBeUndefined();
+    expect(manifest.optional_host_permissions).toContain("https://*/*");
+    expect(manifest.content_scripts).toBeUndefined();
+  });
 
   test.beforeAll(async () => {
+    copy = mkdtempSync(join(tmpdir(), "lovewall-ext-copy-"));
+    cpSync(EXT, copy, { recursive: true });
+    const manifest = JSON.parse(readFileSync(join(copy, "manifest.json"), "utf8"));
+    writeFileSync(join(copy, "manifest.json"), JSON.stringify({ ...manifest, host_permissions: [`${APP}/*`] }));
     profile = mkdtempSync(join(tmpdir(), "lovewall-ext-"));
     ctx = await chromium.launchPersistentContext(profile, {
       channel: "chrome",
@@ -375,7 +393,7 @@ test.describe("extension: pages in headless Chrome", () => {
     cdp = await ctx.browser()!.newBrowserCDPSession();
     // On install the extension opens its options page, which can take over a test's tab: wait for it and close it.
     const welcome = ctx.waitForEvent("page", { predicate: (p) => p.url().endsWith("/options.html"), timeout: 10_000 }).catch(() => null);
-    id = ((await cdp.send("Extensions.loadUnpacked" as never, { path: EXT } as never)) as { id: string }).id;
+    id = ((await cdp.send("Extensions.loadUnpacked" as never, { path: copy } as never)) as { id: string }).id;
     expect(id).toMatch(/^[a-p]{32}$/);
     await (await welcome)?.close();
   });
@@ -383,6 +401,7 @@ test.describe("extension: pages in headless Chrome", () => {
   test.afterAll(async () => {
     await ctx?.close();
     rmSync(profile, { recursive: true, force: true });
+    rmSync(copy, { recursive: true, force: true });
   });
 
   async function audit(page: Page, name: string) {
@@ -406,14 +425,14 @@ test.describe("extension: pages in headless Chrome", () => {
       await page.emulateMedia({ colorScheme: scheme });
       let status = 201;
       let posted: Record<string, unknown> | null = null;
-      await page.route("https://lovewall.tech/api/v1/**", async (route) => {
+      await page.route(`${APP}/api/v1/**`, async (route) => {
         const req = route.request();
         expect(req.headers()["authorization"]).toBe(`Bearer lw_${"a".repeat(40)}`);
         if (req.url().endsWith("/space")) return route.fulfill({ json: { data: SPACE } });
         if (status === 0) return route.abort();
         posted = req.postDataJSON();
         if (status !== 201) return route.fulfill({ status, json: { error: { code: "x", message: "Nope" } } });
-        return route.fulfill({ status, json: { data: { id: "t1", inbox_url: "https://lovewall.tech/app/s1" } } });
+        return route.fulfill({ status, json: { data: { id: "t1", inbox_url: `${APP}/app/s1` } } });
       });
 
       // Not set up yet.
@@ -421,9 +440,14 @@ test.describe("extension: pages in headless Chrome", () => {
       await expect(page.getByRole("heading", { name: "Connect your Lovewall" })).toBeVisible();
       await audit(page, "popup setup");
 
-      // Options: a wrong key is caught before any call, then a good one connects.
+      // Options: no address by default; a wrong key is caught before any call, then a good one connects.
       await page.goto(`chrome-extension://${id}/options.html`);
-      await expect(page.getByLabel("App URL")).toHaveValue("https://lovewall.tech");
+      await expect(page.getByLabel("App URL")).toHaveValue("");
+      await expect(page.getByRole("link", { name: "Get a key" })).toBeHidden();
+      await page.getByRole("button", { name: "Save" }).click();
+      await expect(page.getByText("Add your Lovewall address")).toBeVisible();
+      await page.getByLabel("App URL").fill("wall.example.com");
+      await expect(page.getByRole("link", { name: "Get a key" })).toHaveAttribute("href", `${APP}/app`);
       await page.getByLabel("API key").fill("nope");
       await page.getByRole("button", { name: "Save" }).click();
       await expect(page.getByText("Keys start with lw_")).toBeVisible();
@@ -462,7 +486,7 @@ test.describe("extension: pages in headless Chrome", () => {
         [401, "Check your API key"],
         [403, "This key is read-only"],
         [409, "Already saved"],
-        [0, "Can't reach lovewall.tech"],
+        [0, "Can't reach wall.example.com"],
       ] as const) {
         status = code;
         await page.getByRole("button", { name: "Save" }).click();
@@ -473,17 +497,38 @@ test.describe("extension: pages in headless Chrome", () => {
       status = 201;
       await page.getByRole("button", { name: "Save" }).click();
       await expect(page.getByRole("heading", { name: "Saved" })).toBeVisible();
-      await expect(page.getByRole("link", { name: "Open inbox" })).toHaveAttribute("href", "https://lovewall.tech/app/s1");
+      await expect(page.getByRole("link", { name: "Open inbox" })).toHaveAttribute("href", `${APP}/app/s1`);
+      // Saves wait in the inbox as new unless "Approve on save" is on.
       expect(posted).toEqual({
         name: "Ada Lovelace",
         text: "Lovewall is great.",
-        status: "approved",
+        status: "new",
         handle: "ada",
         source: "X",
         source_url: "https://x.com/ada/status/1",
         rating: 4,
       });
       await audit(page, "popup saved");
+
+      await page.goto(`chrome-extension://${id}/options.html`);
+      await expect(page.getByLabel("Approve on save")).not.toBeChecked();
+      await page.getByLabel("Approve on save").check();
+      await expect.poll(() => page.evaluate(async () => (await chrome.storage.local.get("autoApprove")).autoApprove)).toBe(true);
+      await audit(page, "options approve on save");
+      await page.evaluate(() =>
+        chrome.storage.session.set({
+          draft: {
+            tabId: -1,
+            key: "",
+            at: Date.now(),
+            fields: { name: "Grace", text: "Calm and fast.", source: "", source_url: "", rating: 0 },
+          },
+        }),
+      );
+      await page.goto(`chrome-extension://${id}/popup.html?window=1`);
+      await page.getByRole("button", { name: "Save" }).click();
+      await expect(page.getByRole("heading", { name: "Saved" })).toBeVisible();
+      expect(posted).toEqual({ name: "Grace", text: "Calm and fast.", status: "approved" });
       await page.evaluate(() => chrome.storage.local.clear());
       await page.close();
     });

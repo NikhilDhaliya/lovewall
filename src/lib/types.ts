@@ -51,6 +51,8 @@ export type Testimonial = {
   spam?: boolean;
   transcript?: string | null;
   captions?: boolean;
+  // The giver claimed a reward for it (migration 0100): shown with the testimonial, never hidden.
+  rewarded?: boolean;
   tags: string[];
   consent: boolean;
   given_at: string;
@@ -93,6 +95,8 @@ export type PublicTestimonial = {
   // AI: the best line (shown highlighted when the widget asks for it) and the video's WebVTT captions.
   highlight?: string | null;
   captions?: string | null;
+  // The giver got a reward for it: every layout says so (the FTC's endorsement rules ask for the disclosure).
+  rewarded?: boolean;
 };
 
 export type PublicSpace = {

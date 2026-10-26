@@ -1,40 +1,31 @@
 import "server-only";
 import { createHmac } from "node:crypto";
+import { CLIENT_IP_HEADER, clientIpFrom, sharedBucketWarning } from "@/lib/client-ip";
 
-// Where the visitor's IP comes from (for rate limits). Forwarding headers are only trusted where something trusted
-// sets them: Vercel, or a reverse proxy the operator vouches for with TRUST_PROXY=1. Otherwise the connection's own
-// address (recorded by scripts/client-ip.cjs), or, failing that, one shared bucket for everyone.
-export function ipSource(): "vercel" | "proxy" | "socket" | "none" {
-  if (process.env.VERCEL) return "vercel";
-  if (process.env.TRUST_PROXY === "1" || process.env.TRUST_PROXY === "true") return "proxy";
-  if (process.env.LOVEWALL_SOCKET_IP === "1") return "socket";
-  return "none";
+export { ipSource } from "@/lib/client-ip";
+
+// Logged once per process (the proxy and the route bundles share the flag through globalThis).
+const warned = Symbol.for("lovewall.shared-ip-bucket-warned");
+function warnOnce(headers: Headers) {
+  const g = globalThis as { [warned]?: boolean };
+  if (g[warned]) return;
+  const message = sharedBucketWarning(headers);
+  if (!message) return;
+  g[warned] = true;
+  console.warn(`[lovewall] ${message}`);
 }
 
-// The same order for Better Auth's own rate limiter.
-export function ipHeaderNames(): string[] {
-  switch (ipSource()) {
-    case "vercel":
-      return ["x-vercel-forwarded-for", "x-real-ip"];
-    case "proxy":
-      return ["x-real-ip", "x-forwarded-for"];
-    default:
-      return ["x-lovewall-ip"];
-  }
-}
-
-const first = (value: string | null) => value?.split(",")[0]?.trim() || "";
-// X-Forwarded-For grows by one entry per hop and the client can pre-fill it: the entry our own proxy appended (the
-// last one) is the only one to trust.
-const last = (value: string | null) => value?.split(",").at(-1)?.trim() || "";
-
+// The visitor's IP, from the one source this deployment trusts (see src/lib/client-ip.ts), or "unknown".
 export function clientIp(headers: Headers): string {
-  if (ipSource() === "none") return "unknown";
-  for (const name of ipHeaderNames()) {
-    const ip = (name === "x-forwarded-for" ? last : first)(headers.get(name));
-    if (ip) return ip.replace(/^::ffff:/i, "");
-  }
-  return "unknown";
+  warnOnce(headers);
+  return clientIpFrom(headers);
+}
+
+// The same request with the resolved IP in the single header Better Auth reads, replacing any copy the client sent.
+export function withClientIp(request: Request): Request {
+  const headers = new Headers(request.headers);
+  headers.set(CLIENT_IP_HEADER, clientIp(request.headers));
+  return new Request(request, { headers });
 }
 
 // IPs are never stored as-is: a keyed hash is enough to count requests (and to tell sessions apart).

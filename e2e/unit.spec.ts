@@ -31,7 +31,7 @@ test("widget HTML never contains user markup", () => {
       items: [evil],
       summary: { average: 5, count: 1 },
       space: { name: "<b>Space</b>", slug: "s", logo: null, website: null },
-      appUrl: "https://lovewall.tech",
+      appUrl: "https://testimonials.example.com",
       mode: "embed",
     });
     expect(html).not.toContain("<script>alert");

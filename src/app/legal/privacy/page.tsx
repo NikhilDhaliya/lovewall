@@ -1,12 +1,12 @@
-// Lawyer review: a lawyer should review this page before launch. Operator values live in src/lib/legal/config.ts.
 import type { Metadata } from "next";
 import { A, Doc, Mail, P, Section, Table, Ul } from "@/components/legal/doc";
-import { LEGAL } from "@/lib/legal/config";
+import { LEGAL, serviceHost } from "@/lib/legal/config";
 
 export const metadata: Metadata = { title: "Privacy Policy" };
 
 export default function PrivacyPage() {
-  const { product, operator, domain, contact, minimumAge, retention: r } = LEGAL;
+  const { product, operator, contact, minimumAge, retention: r } = LEGAL;
+  const domain = serviceHost();
   return (
     <Doc
       title="Privacy Policy"
@@ -144,8 +144,9 @@ export default function PrivacyPage() {
           <li>We do not run advertising, trackers or third-party analytics on {domain}, collect pages, wall pages or widgets.</li>
           <li>We do not make automated decisions with legal or similar effect about you.</li>
           <li>
-            We do not use your content to train AI models. AI features (when on) send only the text you choose to process to the provider,
-            which does not train on it.
+            We do not use your content to train AI models. AI features (when on) send only the content a feature needs to the provider.
+            Anthropic does not train its models on data sent through its API unless the customer opts in, and we have not; every request to
+            Deepgram carries its opt-out from model improvement.
           </li>
           <li>We never show a giver’s email address on a public page, widget, API response or export that the public can reach.</li>
           <li>
@@ -181,11 +182,11 @@ export default function PrivacyPage() {
 
       <Section title="6. Where the data is">
         <P>
-          The operator is in India. The infrastructure is run by the companies on the Subprocessors page, in the regions named there
-          (currently in the United States and Europe). Data therefore moves between countries. For people in the EU, UK and Switzerland,
-          transfers to countries without an adequacy decision rest on the European Commission’s Standard Contractual Clauses (2021/914) and
-          the UK Addendum, which our subprocessors sign with us. For people in India, transfers happen within the limits the Central
-          Government sets under section 16 of the DPDP Act.
+          The operator is in India. The infrastructure is run by the companies on the Subprocessors page, in the locations named there. Data
+          therefore moves between countries. For people in the EU, UK and Switzerland, transfers to countries without an adequacy decision
+          rest on the European Commission’s Standard Contractual Clauses (2021/914) and the UK Addendum, which are part of each
+          subprocessor’s data processing terms with us. For people in India, transfers happen within the limits the Central Government sets
+          under section 16 of the DPDP Act.
         </P>
       </Section>
 
@@ -216,6 +217,10 @@ export default function PrivacyPage() {
             [
               "Unsubscribe list for invitations (a one-way hash of the address, not the address)",
               "Until the customer's account is deleted, so we keep honouring the opt-out",
+            ],
+            [
+              "After an account is deleted on a service that charges: a SHA-256 hash of its email address and the date it first signed up (nothing else), so the same address doesn't get a second free trial",
+              `${r.signupHistoryDays} days`,
             ],
           ]}
         />
@@ -264,12 +269,9 @@ export default function PrivacyPage() {
       <Section title="9. Country notes">
         <P>
           EU, EEA, UK and Switzerland (GDPR and UK GDPR). The legal bases are in section 3. You can complain to your local data protection
-          authority; in the UK that is the ICO (ico.org.uk). We have no establishment in the EU or UK.{" "}
-          {LEGAL.euRepresentative ? `Our EU representative: ${LEGAL.euRepresentative}. ` : ""}
-          {LEGAL.ukRepresentative ? `Our UK representative: ${LEGAL.ukRepresentative}. ` : ""}
-          {!LEGAL.euRepresentative && !LEGAL.ukRepresentative
-            ? "We have not appointed a representative; we will do so when the law requires it."
-            : ""}
+          authority; in the UK that is the ICO (ico.org.uk). We have no establishment in the EU or UK.
+          {LEGAL.euRepresentative ? ` Our EU representative: ${LEGAL.euRepresentative}.` : ""}
+          {LEGAL.ukRepresentative ? ` Our UK representative: ${LEGAL.ukRepresentative}.` : ""}
         </P>
         <P>
           California (CCPA/CPRA). The categories we collect are identifiers, commercial information (subscription), internet activity
@@ -284,9 +286,10 @@ export default function PrivacyPage() {
           stated on the form or page where you gave it, and you may withdraw consent at any time as easily as you gave it, after which we
           stop and delete the data unless the law requires keeping it. You have the rights of access, correction, erasure, grievance
           redressal and to nominate someone to act for you. The person who answers questions about your personal data, and our grievance
-          officer, is {operator}, at <Mail address={contact.privacy} />; we respond within 30 days. If you are not satisfied you may
-          approach the Data Protection Board of India. We tell affected people and the Board of a personal data breach as the Rules require.
-          Before we delete data because it is no longer needed, we tell you at least 48 hours in advance where the Rules require it.
+          officer, is {operator} (contact: <Mail address={contact.privacy} />
+          ); we respond within 30 days. If you are not satisfied you may approach the Data Protection Board of India. We tell affected
+          people and the Board of a personal data breach as the Rules require. Before we delete data because it is no longer needed, we tell
+          you at least 48 hours in advance where the Rules require it.
         </P>
         <P>Other countries. If the law where you live gives you other rights, write to us and we will honour them.</P>
       </Section>
@@ -295,7 +298,8 @@ export default function PrivacyPage() {
         <P>
           The service is not for children. Nobody under {minimumAge} may hold an account. Customers must not invite children to give
           testimonials (under 18 in India, under 16 in the EU and UK, under 13 in the United States) and we delete a child’s testimonial as
-          soon as we learn of it; tell us at <Mail address={contact.privacy} />.
+          soon as we learn of it; tell us (contact: <Mail address={contact.privacy} />
+          ).
         </P>
       </Section>
 

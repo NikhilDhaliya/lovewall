@@ -47,8 +47,9 @@ export default defineConfig({
       timeout: 60_000,
       env: {
         APP_URL: `http://localhost:${PORT}`,
-        // Each test visitor sends its own X-Real-IP, as a reverse proxy would.
+        // Each test visitor sends its own X-Real-IP, as a reverse proxy that overwrites that header would.
         TRUST_PROXY: "1",
+        TRUST_PROXY_HEADER: "x-real-ip",
         // The legal pages are part of the suite (they only show on the hosted service or with this flag).
         LEGAL_PAGES: "true",
         // Webhooks, Slack, Discord and Zapier hooks are delivered to the mock site on 127.0.0.1.
@@ -60,12 +61,10 @@ export default defineConfig({
         VERCEL_PROJECT_ID: "prj_e2e",
         // Imports, mentions and media copies always go to the mock (e2e/mocks/import.mjs), never the real sites.
         IMPORT_TEST_ENDPOINT: `http://127.0.0.1:${SITE_PORT}/import`,
-        GOOGLE_PLACES_API_KEY: "test-google-key",
         CRON_SECRET: "e2e-cron-secret",
         ...(mockX
           ? {
               X_OEMBED_ENDPOINT: `http://127.0.0.1:${SITE_PORT}/oembed`,
-              X_SYNDICATION_ENDPOINT: `http://127.0.0.1:${SITE_PORT}/syndication`,
             }
           : {}),
       },
@@ -78,6 +77,7 @@ export default defineConfig({
       env: {
         APP_URL: `http://localhost:${BILLING_PORT}`,
         TRUST_PROXY: "1",
+        TRUST_PROXY_HEADER: "x-real-ip",
         POLAR_ACCESS_TOKEN: POLAR_TEST.token,
         POLAR_WEBHOOK_SECRET: POLAR_TEST.webhookSecret,
         POLAR_SERVER: "sandbox",
@@ -94,6 +94,7 @@ export default defineConfig({
       env: {
         APP_URL: `http://localhost:${AI_PORT}`,
         TRUST_PROXY: "1",
+        TRUST_PROXY_HEADER: "x-real-ip",
         ANTHROPIC_API_KEY: "test-anthropic-key",
         ANTHROPIC_BASE_URL: `http://127.0.0.1:${SITE_PORT}/anthropic`,
         DEEPGRAM_API_KEY: "test-deepgram-key",

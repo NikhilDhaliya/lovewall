@@ -9,7 +9,6 @@ import { getOwnedSpace } from "@/lib/data/spaces";
 import { inboxMeta, queryInbox, toOwner, type InboxFilters, type InboxPage, type OwnerTestimonial } from "@/lib/data/testimonials";
 import { trash } from "@/lib/data/trash";
 import { newId } from "@/lib/ids";
-import { copyRemote } from "@/lib/import/media";
 import { rateLimit, rateLimitAll } from "@/lib/rate-limit";
 import { audit } from "@/lib/privacy";
 import { actionUser } from "@/lib/session";
@@ -18,7 +17,6 @@ import { sourceLabel } from "@/lib/sources";
 import type { Testimonial } from "@/lib/types";
 import { httpsUrl, nameSchema, optionalLine, ratingSchema, sourceSchema, tagSchema, textSchema, type UploadKind } from "@/lib/validation";
 import { emitTestimonialEvent } from "@/lib/webhooks";
-import { fetchTweet, ImportError } from "@/lib/x-import";
 import type { MediaJob } from "./import";
 
 const idList = z
@@ -322,42 +320,6 @@ export async function addTestimonial(spaceId: string, input: TestimonialInput): 
       return ok(toOwner(row!));
     } catch (error) {
       if ((error as { code?: string }).code === "23505") return fail("That link is already in this space");
-      throw error;
-    }
-  });
-}
-
-export async function importFromX(spaceId: string, url: string): Promise<Result<OwnerTestimonial>> {
-  return guard(async () => {
-    const { user, space } = await owned(spaceId);
-    if (!space) return fail("Not found");
-    const limit = await rateLimit(`x-import:${user.id}`, 60, 3600);
-    if (!limit.ok) return fail("Too many imports. Try again later.");
-    let tweet;
-    try {
-      tweet = await fetchTweet(String(url).slice(0, 500));
-    } catch (error) {
-      return fail(error instanceof ImportError ? error.message : "Couldn't import that post");
-    }
-    if (!tweet.text) return fail("That post has no text");
-    const exists = await one("select 1 from testimonials where space_id = $1 and source_url = $2", [spaceId, tweet.url]);
-    if (exists) return fail("Already imported");
-    const avatar = await copyRemote(spaceId, tweet.avatarUrl, "avatar");
-    try {
-      const row = await one<Testimonial>(
-        `insert into testimonials (id, space_id, status, source, source_url, text, name, handle, avatar_key, consent, given_at)
-         values ($1, $2, 'approved', 'X', $3, $4, $5, $6, $7, true, coalesce($8, now())) returning *`,
-        [newId(12), spaceId, tweet.url, tweet.text.slice(0, 3000), tweet.name, tweet.handle, avatar, tweet.date],
-      );
-      await refreshWidgets(spaceId);
-      await emitTestimonialEvent(
-        spaceId,
-        row!.status === "approved" ? ["testimonial.created", "testimonial.approved"] : "testimonial.created",
-        [row!],
-      );
-      return ok(toOwner(row!));
-    } catch (error) {
-      if ((error as { code?: string }).code === "23505") return fail("Already imported");
       throw error;
     }
   });

@@ -19,6 +19,8 @@ async function record(g: Grant, kind: "coupon" | "link" | "wheel", prize: unknow
      values ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
     [newId(16), g.spaceId, g.form.id, g.testimonialId, g.responseId, kind, tokenHash, JSON.stringify(prize), g.email],
   );
+  // The testimonial discloses the reward wherever it is shown (widgets, wall page, public API); nobody can unset it.
+  if (g.testimonialId) await q("update testimonials set rewarded = true where id = $1 and space_id = $2", [g.testimonialId, g.spaceId]);
 }
 
 export async function grantReward(g: Grant): Promise<RewardResult | null> {

@@ -5,7 +5,7 @@ import { ReportsQueue } from "@/components/inbox/reports";
 import { formsMeta } from "@/lib/data/forms";
 import { loadSpace } from "@/lib/data/load";
 import { inboxMeta, queryInbox, type InboxFilters } from "@/lib/data/testimonials";
-import { env, importKeys } from "@/lib/env";
+import { env } from "@/lib/env";
 import { listReports } from "@/lib/privacy";
 
 export const metadata: Metadata = { title: "Inbox" };
@@ -23,7 +23,6 @@ export default async function InboxPage(props: PageProps<"/app/[space]">) {
       collectUrl={`${env.appUrl}/${space.slug}`}
       initial={{ filters, items: page.items, next: page.next, meta }}
       forms={await formsMeta(space.id)}
-      importKeys={{ google: Boolean(importKeys.google), yelp: Boolean(importKeys.yelp) }}
       ai={aiKeys()}
       notice={<ReportsQueue key="reports" spaceId={space.id} initial={await listReports(space.id)} />}
       canExport={role === "owner"}

@@ -1,6 +1,6 @@
 "use client";
 
-import { Check, FileUp } from "lucide-react";
+import { ArrowUpRight, Check, ChevronRight, FileUp } from "lucide-react";
 import { useRef, useState } from "react";
 import { Segmented } from "@/components/ui/segmented";
 import { cn } from "@/lib/cn";
@@ -62,6 +62,47 @@ export function StatusChoice({ value, onChange }: { value: "approved" | "new"; o
         { value: "new", label: "New" },
       ]}
     />
+  );
+}
+
+// Rows in a hairline grid: a line under each row, and between the two columns on wider screens. With href, a link that
+// opens in a new tab.
+export function PickRow({
+  icon,
+  label,
+  onClick,
+  href,
+  className: extra,
+}: {
+  icon: React.ReactNode;
+  label: string;
+  onClick?: () => void;
+  href?: string;
+  className?: string;
+}) {
+  const className = cn(
+    "group -mb-px flex h-12 items-center gap-3 border-b border-line px-4 text-left text-[14.5px] transition-colors hover:bg-surface-2 focus-visible:bg-surface-2 focus-visible:outline-none sm:h-11 sm:text-[14px] sm:odd:border-r",
+    extra,
+  );
+  const body = (
+    <>
+      <span className="grid size-5 place-items-center text-ink">{icon}</span>
+      <span className="min-w-0 flex-1 truncate">{label}</span>
+      {href ? (
+        <ArrowUpRight className="size-4 text-faint" />
+      ) : (
+        <ChevronRight className="size-4 text-faint transition-transform group-hover:translate-x-0.5" />
+      )}
+    </>
+  );
+  return href ? (
+    <a href={href} target="_blank" rel="noopener noreferrer" className={className}>
+      {body}
+    </a>
+  ) : (
+    <button type="button" onClick={onClick} className={className}>
+      {body}
+    </button>
   );
 }
 

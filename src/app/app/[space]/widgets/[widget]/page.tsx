@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { Configurator, type ConfiguratorTab } from "@/components/widgets/configurator";
 import { aiReady } from "@/lib/ai/client";
+import { SHOWN } from "@/lib/ai/translate";
 import { one, q } from "@/lib/db";
 import { fileUrl } from "@/lib/data/files";
 import { loadSpace } from "@/lib/data/load";
@@ -29,13 +30,13 @@ export default async function WidgetPage(props: PageProps<"/app/[space]/widgets/
     space.id,
   ]);
   const items = rows.map(toPublic);
-  // AI: the translations the preview can show (current ones only, i.e. made from the text as it is now).
+  // AI: the translations the preview can show: the same ones the public sees (approved, made from the text as it is now).
   const ai = aiReady();
   const translations: Record<string, Record<string, { text: string; highlight: string | null }>> = {};
   if (ai && rows.length) {
     const tr = await q<{ testimonial_id: string; lang: string; text: string; highlight: string | null }>(
       `select tr.testimonial_id, tr.lang, tr.text, tr.highlight from testimonial_translations tr join testimonials t on t.id = tr.testimonial_id
-       where tr.space_id = $1 and tr.testimonial_id = any($2) and tr.source_hash = md5(t.text)`,
+       where tr.space_id = $1 and tr.testimonial_id = any($2) and ${SHOWN}`,
       [space.id, rows.map((r) => r.id)],
     );
     for (const r of tr) (translations[r.lang] ??= {})[r.testimonial_id] = { text: r.text, highlight: r.highlight };

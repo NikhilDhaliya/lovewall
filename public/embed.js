@@ -1,4 +1,4 @@
-/*! Lovewall embed · MIT · github.com/NikhilDhaliya/lovewall */
+/*! Lovewall embed loader · MIT (see LICENSE-embed in the repository) · github.com/NikhilDhaliya/lovewall */
 (function (w, d) {
   if (w.Lovewall) return w.Lovewall.scan();
   var me = d.currentScript || [].slice.call(d.querySelectorAll('script[src*="/embed.js"]')).pop();

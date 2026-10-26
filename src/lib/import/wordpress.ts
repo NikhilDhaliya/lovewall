@@ -4,7 +4,7 @@ import { getJson, getText } from "./http";
 import { clip, htmlText, httpsOrNull, isoDate, stars } from "./parse";
 import { ImportError, type Found, type Importer } from "./types";
 
-// WordPress.org plugin reviews: the official plugins API (reviews with names and avatars) plus the official reviews
+// WordPress.org plugin reviews: the official plugins API (reviews with names and ratings) plus the official reviews
 // feed for each review's own link.
 
 export function parseWordPress(input: string): string | null {
@@ -29,7 +29,6 @@ export function wordpressReviews(html: string, links: Map<string, string>, slug:
       text,
       rating: stars(block.match(/data-rating="(\d)"/)?.[1]),
       date: date ? isoDate(`${decodeEntities(date)} 12:00 UTC`) : null,
-      avatarUrl: httpsOrNull(decodeEntities(block.match(/<img[^>]*src='([^']+)'/)?.[1] ?? "").replace(/([?&])s=\d+/, "$1s=96")),
     });
   }
   return items;

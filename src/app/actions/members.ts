@@ -120,6 +120,12 @@ export async function revokeInvite(spaceId: string, inviteId: string): Promise<R
   });
 }
 
+// API keys (with the REST Hooks made through them) and webhooks, Slack and Discord links a person made in a space.
+async function dropCredentials(spaceId: string, userId: string) {
+  await q("delete from api_keys where space_id = $1 and created_by = $2", [spaceId, userId]);
+  await q("delete from webhooks where space_id = $1 and created_by = $2", [spaceId, userId]);
+}
+
 // Hands the space to another member. They pay for it from now on (hosted); the old owner stays as an editor.
 export async function makeOwner(spaceId: string, memberId: string): Promise<Result> {
   return guard(async () => {
@@ -154,8 +160,8 @@ export async function removeMember(spaceId: string, memberId: string): Promise<R
       memberId,
     ]);
     if (!rows.length) return fail("Not found");
-    // Access goes with the person: API keys they made for this space stop working too.
-    await q("delete from api_keys where space_id = $1 and created_by = $2", [spaceId, memberId]);
+    // Access goes with the person: API keys they made for this space stop working, and hooks they set up stop sending.
+    await dropCredentials(spaceId, memberId);
     await audit({ spaceId, actorId: user.id, action: "member.remove", target: memberId });
     return ok(null);
   });
@@ -170,7 +176,7 @@ export async function leaveSpace(spaceId: string): Promise<Result> {
     if (space.role === "owner") return fail("Make someone else the owner first");
     if (!(await changeLimit(user.id))) return fail("Too many changes. Try again later.");
     await q("delete from space_members where space_id = $1 and user_id = $2 and role <> 'owner'", [spaceId, user.id]);
-    await q("delete from api_keys where space_id = $1 and created_by = $2", [spaceId, user.id]);
+    await dropCredentials(spaceId, user.id);
     await audit({ spaceId, actorId: user.id, action: "member.leave", target: user.id });
     revalidatePath("/app", "layout");
     return ok(null);

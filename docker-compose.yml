@@ -1,6 +1,8 @@
 # One-command self-host: app + Postgres + RustFS (S3-compatible file storage, Apache-2.0).
-#   cp .env.example .env   # set BETTER_AUTH_SECRET (openssl rand -base64 32)
+#   cp .env.example .env   # fill in BETTER_AUTH_SECRET, CRON_SECRET, POSTGRES_PASSWORD, S3_ACCESS_KEY_ID and
+#                          # S3_SECRET_ACCESS_KEY (.env.example says how to generate each)
 #   docker compose up -d   # then open http://localhost:3000
+# Compose refuses to start while a required secret is missing; there are no default passwords.
 services:
   app:
     build:
@@ -11,15 +13,15 @@ services:
       - path: .env
         required: false
     environment:
-      DATABASE_URL: postgresql://lovewall:lovewall@db:5432/lovewall
+      DATABASE_URL: postgresql://lovewall:${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env (openssl rand -hex 24)}@db:5432/lovewall
       S3_ENDPOINT: http://storage:9000
       S3_PUBLIC_ENDPOINT: ${S3_PUBLIC_ENDPOINT:-http://localhost:9000}
       S3_BUCKET: ${S3_BUCKET:-lovewall}
-      S3_ACCESS_KEY_ID: ${S3_ACCESS_KEY_ID:-lovewall}
-      S3_SECRET_ACCESS_KEY: ${S3_SECRET_ACCESS_KEY:-lovewall-secret}
+      S3_ACCESS_KEY_ID: ${S3_ACCESS_KEY_ID:?set S3_ACCESS_KEY_ID in .env (openssl rand -hex 12)}
+      S3_SECRET_ACCESS_KEY: ${S3_SECRET_ACCESS_KEY:?set S3_SECRET_ACCESS_KEY in .env (openssl rand -hex 32)}
       S3_FORCE_PATH_STYLE: "true"
-      # Only behind a reverse proxy that sets X-Real-IP (e.g. Caddy or nginx in front of port 3000):
-      # TRUST_PROXY: "1"
+      # Behind a reverse proxy (Caddy or nginx in front of port 3000), set TRUST_PROXY=1 in .env: the proxy must append
+      # the visitor's address to X-Forwarded-For, or overwrite the header named in TRUST_PROXY_HEADER.
     ports:
       - "${APP_PORT:-3000}:3000"
     depends_on:
@@ -33,7 +35,7 @@ services:
     image: postgres:16-alpine
     environment:
       POSTGRES_USER: lovewall
-      POSTGRES_PASSWORD: lovewall
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env (openssl rand -hex 24)}
       POSTGRES_DB: lovewall
     volumes:
       - db:/var/lib/postgresql/data
@@ -47,11 +49,13 @@ services:
   storage:
     image: rustfs/rustfs:latest
     environment:
-      RUSTFS_ACCESS_KEY: ${S3_ACCESS_KEY_ID:-lovewall}
-      RUSTFS_SECRET_KEY: ${S3_SECRET_ACCESS_KEY:-lovewall-secret}
+      RUSTFS_ACCESS_KEY: ${S3_ACCESS_KEY_ID:?set S3_ACCESS_KEY_ID in .env (openssl rand -hex 12)}
+      RUSTFS_SECRET_KEY: ${S3_SECRET_ACCESS_KEY:?set S3_SECRET_ACCESS_KEY in .env (openssl rand -hex 32)}
       RUSTFS_VOLUMES: /data
+    # Browsers upload straight to storage with signed URLs. Published on this machine only by default; on a server,
+    # put it behind your reverse proxy with TLS (and set S3_PUBLIC_ENDPOINT), or set STORAGE_BIND=0.0.0.0.
     ports:
-      - "${STORAGE_PORT:-9000}:9000"
+      - "${STORAGE_BIND:-127.0.0.1}:${STORAGE_PORT:-9000}:9000"
     volumes:
       - files:/data
     restart: unless-stopped

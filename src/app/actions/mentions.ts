@@ -11,7 +11,7 @@ import { rateLimitAll } from "@/lib/rate-limit";
 import { emitTestimonialEvent } from "@/lib/webhooks";
 import { actionUser } from "@/lib/session";
 
-// Mentions of a space's keywords on Hacker News and Reddit: keywords and the digest switch, the list, save one as a
+// Mentions of a space's keywords on Hacker News: keywords and the digest switch, the list, save one as a
 // testimonial, dismiss. Each action checks the space, validates input and is rate limited.
 
 async function owned(spaceId: string) {
@@ -118,7 +118,7 @@ export async function setMentionStatus(spaceId: string, id: string, status: "new
   });
 }
 
-// Saves a mention as an approved testimonial (source Hacker News or Reddit, linked to the post).
+// Saves a mention as an approved testimonial (source Hacker News, linked to the post).
 export async function saveMention(spaceId: string, id: string): Promise<Result<{ testimonialId: string }>> {
   return guard(async () => {
     const { user, space } = await owned(spaceId);
@@ -137,7 +137,7 @@ export async function saveMention(spaceId: string, id: string): Promise<Result<{
           [
             newId(12),
             spaceId,
-            m.platform === "hackernews" ? "Hacker News" : "Reddit",
+            "Hacker News",
             m.url,
             (m.text || m.title).slice(0, 3000),
             m.author.slice(0, 80) || "Anonymous",

@@ -35,7 +35,7 @@ function ago(iso: string) {
   return RELATIVE.format(Math.round(s / 86400), "day");
 }
 
-// Mentions of the space's keywords on Hacker News and Reddit, checked by the cron: save the good ones as
+// Mentions of the space's keywords on Hacker News, checked by the cron: save the good ones as
 // testimonials, dismiss the rest. A daily email lists new ones (switch).
 export function Mentions({ spaceId, initial }: { spaceId: string; initial: MentionsState }) {
   const [settings, setSettings] = useState(initial.settings);
@@ -123,7 +123,7 @@ export function Mentions({ spaceId, initial }: { spaceId: string; initial: Menti
       ? `Checked ${ago(settings.checkedAt)}`
       : settings.keywords.length
         ? "First check soon"
-        : "Hacker News and Reddit";
+        : "Hacker News";
 
   return (
     <div className="pb-28">
@@ -203,7 +203,7 @@ export function Mentions({ spaceId, initial }: { spaceId: string; initial: Menti
               <h2 className="font-display text-[17px] font-medium">
                 {!settings.keywords.length ? "No keywords yet" : view === "new" ? "No new mentions" : "Nothing here"}
               </h2>
-              {!settings.keywords.length && <p className="mt-1.5 text-[14px] text-muted">Add one above to watch Hacker News and Reddit.</p>}
+              {!settings.keywords.length && <p className="mt-1.5 text-[14px] text-muted">Add one above to watch Hacker News.</p>}
             </div>
           ) : (
             <ul className="divide-y divide-line overflow-hidden rounded-[12px] bg-surface ring-1 ring-line">
@@ -230,7 +230,7 @@ export function Mentions({ spaceId, initial }: { spaceId: string; initial: Menti
                         target="_blank"
                         rel="noopener noreferrer nofollow"
                         className="shrink-0 tabular-nums hover:text-ink"
-                        aria-label={`Open on ${m.platform === "hackernews" ? "Hacker News" : "Reddit"}`}
+                        aria-label="Open on Hacker News"
                       >
                         {formatDate(m.postedAt)}
                       </a>

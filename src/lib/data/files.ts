@@ -10,20 +10,45 @@ export function fileUrl(key: string | null | undefined): string | null {
   return key ? `${env.appUrl}/api/files/${key}` : null;
 }
 
-// Records the upload and returns a PUT URL that accepts exactly this type and size.
-export async function createUpload(spaceId: string, kind: UploadKind, contentType: string, size: number) {
+const MB = 1024 * 1024;
+
+// Bytes that public forms may leave unclaimed (asked for, not yet attached to a testimonial) within an hour: per visitor
+// and per space. Room for a few of the largest videos either way, so a raised MAX_VIDEO_MB still fits.
+export function publicUploadBudget(maxVideoMb = env.maxVideoMb) {
+  return { ip: Math.max(300, maxVideoMb * 3) * MB, space: Math.max(2048, maxVideoMb * 20) * MB };
+}
+
+// Records the upload and returns a PUT URL that accepts exactly this type and size. `ipHash` marks an upload from a
+// public form: it is refused when the visitor's or the space's unclaimed bytes of the last hour would pass the budget.
+export async function createUpload(spaceId: string, kind: UploadKind, contentType: string, size: number, opts: { ipHash?: string } = {}) {
   const rules = uploadRules(kind, env.maxVideoMb);
   if (!rules.types.includes(contentType)) return { ok: false as const, error: "That file type isn't supported" };
   if (!Number.isInteger(size) || size <= 0) return { ok: false as const, error: "Empty file" };
-  if (size > rules.max) return { ok: false as const, error: `Too large (max ${Math.round(rules.max / 1024 / 1024)} MB)` };
+  if (size > rules.max) return { ok: false as const, error: `Too large (max ${Math.round(rules.max / MB)} MB)` };
   const key = `${spacePrefix(spaceId)}${kind}/${newId(16)}.${EXT[contentType]}`;
-  await q("insert into uploads (key, space_id, kind, content_type, size) values ($1, $2, $3, $4, $5)", [
-    key,
-    spaceId,
-    kind,
-    contentType,
-    size,
-  ]);
+  if (opts.ipHash) {
+    const budget = publicUploadBudget();
+    // One statement, so the check and the insert see the same rows.
+    const rows = await q(
+      `insert into uploads (key, space_id, kind, content_type, size, ip_hash)
+       select $1, $2, $3, $4, $5::int, $6
+       where (select coalesce(sum(size), 0) from uploads
+              where ip_hash = $6 and claimed_at is null and created_at > now() - interval '1 hour') + $5::int <= $7::bigint
+         and (select coalesce(sum(size), 0) from uploads
+              where space_id = $2 and ip_hash is not null and claimed_at is null and created_at > now() - interval '1 hour') + $5::int <= $8::bigint
+       returning key`,
+      [key, spaceId, kind, contentType, size, opts.ipHash, budget.ip, budget.space],
+    );
+    if (!rows.length) return { ok: false as const, error: "Too many uploads. Try again later.", busy: true };
+  } else {
+    await q("insert into uploads (key, space_id, kind, content_type, size) values ($1, $2, $3, $4, $5)", [
+      key,
+      spaceId,
+      kind,
+      contentType,
+      size,
+    ]);
+  }
   const url = await presignPut(key, contentType, size);
   return { ok: true as const, key, url, headers: { "Content-Type": contentType } };
 }
@@ -44,10 +69,11 @@ export async function verifyUpload(spaceId: string, kind: UploadKind, key: strin
   return key;
 }
 
+// The IP hash only served the byte budgets of unclaimed uploads: it goes once a file is claimed.
 export async function claimUploads(keys: (string | null | undefined)[], client?: PoolClient) {
   const list = keys.filter((k): k is string => Boolean(k));
   if (!list.length) return;
-  const sql = "update uploads set claimed_at = now() where key = any($1) and claimed_at is null";
+  const sql = "update uploads set claimed_at = now(), ip_hash = null where key = any($1) and claimed_at is null";
   if (client) await client.query(sql, [list]);
   else await q(sql, [list]);
 }

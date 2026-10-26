@@ -4,12 +4,12 @@ import { appLink, newTestimonialMail } from "@/lib/mail";
 import { enqueue, flushOne } from "@/lib/outbox";
 import { sourceById } from "@/lib/sources";
 import { importerFor } from "./index";
-import { attachMedia, insertFound, newest } from "./save";
-import { BlockedError, ImportError } from "./types";
+import { insertFound, newest } from "./save";
+import { ImportError } from "./types";
 
-// Connected sources ("Keep in sync"): fetch the page again, add reviews newer than the watermark, approve the ones at
-// or above the owner's minimum rating, and email the owner like a form submission. Errors back off: 2, 4, 8 hours...
-// up to a week.
+// Connected sources ("Keep in sync", official feeds only: App Store, WordPress.org): read the feed again, add reviews
+// newer than the watermark, approve the ones at or above the owner's minimum rating, and email the owner like a form
+// submission. Errors back off: 2, 4, 8 hours... up to a week.
 
 export type ImportSourceRow = {
   id: string;
@@ -30,33 +30,27 @@ export type ImportSourceRow = {
 const MAX_EMAILS = 5;
 
 export async function syncSource(row: ImportSourceRow): Promise<{ added: number; error: string | null }> {
-  const importer = importerFor(row.source);
+  const importer = sourceById(row.source)?.sync ? importerFor(row.source) : null;
   const label = sourceById(row.source)?.label ?? row.source;
   try {
-    if (!importer) throw new ImportError(`${label} isn't set up`);
+    if (!importer) throw new ImportError(`${label} can't be kept in sync`);
     const fetched = await importer.fetch(row.input);
     const since = row.since ? new Date(row.since).toISOString() : null;
     const fresh = fetched.items.filter((f) => !since || !f.date || f.date > since);
     const { saved } = await insertFound(row.space_id, label, fresh, (f) =>
       row.auto_approve && f.rating && f.rating >= row.auto_approve ? "approved" : "new",
     );
-    await attachMedia(row.space_id, saved, 20);
     const watermark = [since, newest(fetched.items)].filter(Boolean).sort().pop() ?? null;
     await q(
       `update import_sources set since = $2, label = coalesce(nullif($3, ''), label), last_run_at = now(), last_added = $4,
          last_error = null, failures = 0, next_run_at = now() + interval '23 hours' where id = $1`,
       [row.id, watermark, fetched.label.slice(0, 80), saved.length],
     );
-    if (saved.length)
-      await notify(
-        row.space_id,
-        saved.map((s) => s.row),
-      );
+    if (saved.length) await notify(row.space_id, saved);
     return { added: saved.length, error: null };
   } catch (error) {
-    const message =
-      error instanceof BlockedError || error instanceof ImportError ? error.message : `Couldn't reach ${label}. Trying again later.`;
-    if (!(error instanceof BlockedError || error instanceof ImportError)) console.error(`[sync] ${row.source}`, (error as Error).message);
+    const message = error instanceof ImportError ? error.message : `Couldn't reach ${label}. Trying again later.`;
+    if (!(error instanceof ImportError)) console.error(`[sync] ${row.source}`, (error as Error).message);
     await q(
       `update import_sources set last_run_at = now(), last_error = $2, failures = failures + 1,
          next_run_at = now() + make_interval(hours => least(power(2, failures + 1)::int, 168)) where id = $1`,

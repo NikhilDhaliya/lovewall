@@ -1,6 +1,7 @@
 import "server-only";
 import { createHash } from "node:crypto";
 import { one, q } from "@/lib/db";
+import { planFor } from "@/lib/data/billing";
 import { env } from "@/lib/env";
 import { EMAIL_RE, type FormConfig } from "@/lib/forms";
 import { formLanguage } from "@/lib/i18n/collect";
@@ -93,6 +94,24 @@ export async function sentToday(spaceId: string): Promise<number> {
   return row?.n ?? 0;
 }
 
+// Hosted trials (billing on, not paid yet): people a space owner may invite per 24 hours across all their spaces, so a
+// throwaway trial account can't be used to send bulk mail. Paid plans and self-hosted servers have the per-space limit
+// only (MAX_INVITES_PER_SPACE_PER_DAY).
+export const TRIAL_INVITES_PER_DAY = 50;
+
+// Sent in the last 24 hours against the limit that leaves less room: the space's own, or (trial) its owner's.
+export async function inviteQuota(space: { id: string; owner_id: string }): Promise<{ today: number; max: number }> {
+  const own = { today: await sentToday(space.id), max: env.maxInvitesPerDay };
+  if ((await planFor(space.owner_id))?.state !== "trialing") return own;
+  const row = await one<{ n: number }>(
+    `select count(*)::int as n from invites i join spaces s on s.id = i.space_id
+     where s.owner_id = $1 and i.sent_at > now() - interval '1 day'`,
+    [space.owner_id],
+  );
+  const trial = { today: row?.n ?? 0, max: TRIAL_INVITES_PER_DAY };
+  return trial.max - trial.today < own.max - own.today ? trial : own;
+}
+
 function mailFor(
   invite: Pick<InviteRow, "id" | "email" | "name" | "subject" | "message" | "reply_to">,
   space: { name: string; address: string | null },
@@ -133,6 +152,8 @@ export async function sendInvites(opts: {
   reminders: number;
   days: number;
   replyTo: string | null;
+  // How many may still go out today (inviteQuota).
+  room: number;
 }): Promise<SendReport> {
   const report: SendReport = { sent: 0, unsubscribed: 0, duplicates: 0, invalid: 0, overLimit: 0, outbox: [] };
   const seen = new Set<string>();
@@ -155,7 +176,7 @@ export async function sendInvites(opts: {
     ).map((r) => r.email_hash),
   );
   const sender = { name: opts.space.name, address: footerAddress(opts.space.business_address) };
-  let room = Math.max(0, env.maxInvitesPerDay - (await sentToday(opts.space.id)));
+  let room = Math.max(0, opts.room);
   const url = await formUrl(opts.space, opts.form);
   for (const r of list) {
     if (suppressed.has(emailHash(r.email))) {

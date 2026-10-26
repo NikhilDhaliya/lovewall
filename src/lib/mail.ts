@@ -156,17 +156,14 @@ ${opts.video ? `<tr><td style="padding:0 32px 10px;font-size:14px;color:#6e6e73"
 export function mentionsDigestMail(opts: {
   to: string;
   space: string;
-  items: { platform: "hackernews" | "reddit"; author: string; title: string; text: string; url: string }[];
+  items: { author: string; title: string; text: string; url: string }[];
   url: string;
 }): Mail {
-  const where = (p: string) => (p === "hackernews" ? "Hacker News" : "Reddit");
   const shown = opts.items.slice(0, 10);
   const excerpt = (t: string) => (t.length > 220 ? `${t.slice(0, 220)}…` : t);
   const rows = shown
     .map(
-      (
-        m,
-      ) => `<tr><td style="padding:0 32px 16px"><div style="font-size:13px;color:#6e6e73">${esc(where(m.platform))} · ${esc(m.author)}</div>
+      (m) => `<tr><td style="padding:0 32px 16px"><div style="font-size:13px;color:#6e6e73">Hacker News · ${esc(m.author)}</div>
 <div style="font-size:15px;line-height:1.5;white-space:pre-wrap"><a href="${esc(m.url)}" style="color:#1d1d1f;text-decoration:none">${esc(excerpt(m.text || m.title))}</a></div></td></tr>`,
     )
     .join("\n");
@@ -179,8 +176,8 @@ ${more > 0 ? `<tr><td style="padding:0 32px 14px;font-size:14px;color:#6e6e73">A
   return {
     to: opts.to,
     subject: `${count} of ${opts.space.slice(0, 60)}`,
-    html: layout(inner, `${count} on Hacker News and Reddit`),
-    text: `${count} for ${opts.space}\n\n${shown.map((m) => `${where(m.platform)} · ${m.author}\n${excerpt(m.text || m.title)}\n${m.url}`).join("\n\n")}${more > 0 ? `\n\nAnd ${more} more` : ""}\n\nReview: ${opts.url}`,
+    html: layout(inner, `${count} on Hacker News`),
+    text: `${count} for ${opts.space}\n\n${shown.map((m) => `Hacker News · ${m.author}\n${excerpt(m.text || m.title)}\n${m.url}`).join("\n\n")}${more > 0 ? `\n\nAnd ${more} more` : ""}\n\nReview: ${opts.url}`,
   };
 }
 

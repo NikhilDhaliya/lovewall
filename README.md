@@ -18,20 +18,21 @@
   <img src="docs/screenshots/inbox.png" alt="The Lovewall inbox" width="900">
 </p>
 
-Lovewall does what Senja and Testimonial.to do: forms, invites, imports from 20+ places, video, 13 widget layouts, a
-wall of love page, analytics, an API, integrations and teams. The difference: it is open source, free to self-host with
-every feature, and your data sits in your own Postgres if you want it there.
+Forms, invites, imports, video, 13 widget layouts, a wall of love page, analytics, an API, integrations, teams and
+optional AI. Open source, free to self-host with every feature, and your data sits in your own Postgres if you want it
+there.
 
-**Hosted or self-hosted.** Self-hosting is free, with every feature. If you'd rather not run a server, the hosted version
-at [lovewall.tech](https://lovewall.tech) is $9 a month or $90 a year after a 14-day trial (no card). Same code, same
-features: billing only switches on when `POLAR_ACCESS_TOKEN` is set, so a self-hosted install never shows a plan, a
-trial or a paywall.
+**Self-hosted, free, every feature.** The code also carries optional billing (through Polar) for anyone who wants to
+run Lovewall as a paid service for others; it switches on only when `POLAR_ACCESS_TOKEN` is set, so a self-hosted
+install never shows a plan, a trial or a paywall.
 
 | Collect                                                                 | Widget configurator                                                           | Wall of love                                                              |
 | ----------------------------------------------------------------------- | ----------------------------------------------------------------------------- | ------------------------------------------------------------------------- |
 | <img src="docs/screenshots/collect.png" alt="Collect page" width="260"> | <img src="docs/screenshots/widget.png" alt="Widget configurator" width="260"> | <img src="docs/screenshots/wall.png" alt="Wall of love page" width="260"> |
 
 <p align="center"><img src="docs/screenshots/inbox-dark.png" alt="The inbox in dark mode" width="900"></p>
+
+<p align="center"><sub>Sample data: every name, quote and number in these screenshots is made up, for a made-up product called Northwind.</sub></p>
 
 ## Features
 
@@ -44,21 +45,27 @@ trial or a paywall.
   step.
 - Invites: paste a list or upload a CSV; each person gets their own link and one reminder; you see who opened, clicked
   and answered. One-click unsubscribe (RFC 8058).
-- Rewards: a coupon code, a link, or a spin of the wheel.
+- Rewards: a coupon code, a link, or a spin of the wheel. A testimonial whose giver claimed a reward says so wherever
+  it is shown ("Got a reward for this review"), and that line can't be switched off.
 - 22 languages for the collect page, or the visitor's own (from `Accept-Language`).
 - Your own domain for forms and wall pages (`love.yourcompany.com`), verified by a TXT record.
 - Reply to a testimonial by email from the inbox.
 
 ### Import
 
-- From a link: Google, Trustpilot, G2, Capterra, Product Hunt, App Store, Google Play, Shopify, WordPress.org, Chrome
-  Web Store, Yelp, X, Reddit, Hacker News, YouTube, TikTok. By paste: LinkedIn, Facebook, Instagram. Also screenshots
-  (text read by AI when a key is set) and CSV. Some sites block servers (Trustpilot, G2, Capterra and Reddit did when we
-  tested); the importer then offers paste or screenshot.
-- Move from Senja or Testimonial.to: upload their CSV export; photos, screenshots and videos come too.
-- Keep review pages in sync (daily). Mentions: watch Hacker News and Reddit for your product's name, with a daily
-  email.
-- A Chrome extension: select praise on any page, right-click, save.
+Lovewall never scrapes. Reviews come in three ways:
+
+- From a link, through the site's official API or feed: X (oEmbed), YouTube and TikTok (oEmbed), the App Store (RSS),
+  WordPress.org (its plugin API) and Hacker News (the Algolia API). X, YouTube and TikTok posts keep their text, author
+  and link (no photos), are checked weekly and are removed once the post is deleted. App Store and WordPress.org
+  reviews can stay in sync (daily).
+- From the site's own export file: Google Business Profile (a Takeout export), Google Play (Play Console), Yotpo,
+  Judge.me, Senja and Testimonial.to have presets; any other CSV works, with a column picker.
+- By hand: paste the text, upload a screenshot (the text is read by AI when a key is set), or select praise on any page
+  and save it with the Chrome extension.
+
+Also: move from Senja or Testimonial.to by uploading their CSV export (photos, screenshots and videos come too), and
+watch Hacker News for mentions of your product, with a daily email.
 
 ### Inbox
 
@@ -74,7 +81,8 @@ trial or a paywall.
 - Embed with a 2 KB script (gzipped) that lazy-loads an iframe which sizes itself, a plain iframe, or a React/Next
   snippet. Widgets are cached and refresh the moment you change something. Guides for 13 site builders at `/guides`.
 - Wall of love page at `/w/<widget>`: tag filters, your call to action, "Add yours", four styles.
-- Google review stars with opt-in JSON-LD. Share images for social posts. Video trimming. CSV and JSON export.
+- Opt-in review markup for search engines (JSON-LD), built only from testimonials collected through your own forms and
+  invites, never from imported reviews. Share images for social posts. Video trimming. CSV and JSON export.
 - Analytics per widget (views, clicks, plays) without cookies.
 
 ### Connect
@@ -88,7 +96,7 @@ trial or a paywall.
 
 - Teams: invite people by email; owners manage members, settings and billing, editors do the rest.
 - AI, optional: spam filter, sentiment tags, best-line highlights, summaries, spelling help for visitors, video
-  transcripts and captions, translated widgets, case studies from answers, a form drafted from your website, text read
+  transcripts and captions, translated widgets (you approve each translation), case studies from answers, a form drafted from your website, text read
   from screenshots. Runs on Claude and Deepgram with your own keys; every feature hides without its key; every switch
   is per space.
 - Privacy: givers get a private link to view, edit or delete their testimonial; a report link on every wall; export
@@ -120,22 +128,37 @@ and video uploads.
 ```bash
 git clone https://github.com/NikhilDhaliya/lovewall
 cd lovewall && cp .env.example .env
-# edit .env: BETTER_AUTH_SECRET (openssl rand -base64 32), and SMTP_* to send real email
+# edit .env: BETTER_AUTH_SECRET and CRON_SECRET (openssl rand -base64 32), POSTGRES_PASSWORD (openssl rand -hex 24),
+# S3_ACCESS_KEY_ID (openssl rand -hex 12), S3_SECRET_ACCESS_KEY (openssl rand -hex 32), and SMTP_* for real email
 docker compose up -d
 ```
 
 Open http://localhost:3000. Compose runs the app, Postgres 16 and RustFS (S3-compatible storage for photos and
 videos); migrations run on every start. Until you configure SMTP, sign-in codes appear in `docker compose logs app`.
+There are no default passwords: compose stops with a message naming any secret that is still empty, and the app
+refuses to start with a short or example `BETTER_AUTH_SECRET` or `CRON_SECRET`. Postgres is not published outside
+Docker's network; RustFS listens on 127.0.0.1:9000 only.
 
-On a server, set `APP_URL` to your public URL and `S3_PUBLIC_ENDPOINT` to the public address of the storage (or use a
-hosted bucket instead of RustFS).
+On a server, set `APP_URL` to your public URL. Browsers upload photos and videos straight to the storage with signed
+URLs, so it needs a public https address too: put RustFS behind your reverse proxy (for example
+`files.example.com` → `127.0.0.1:9000`) and set `S3_PUBLIC_ENDPOINT` to it (or publish it on every interface with
+`STORAGE_BIND=0.0.0.0`), or use a hosted bucket instead.
+
+Upgrading an install made before these secrets were required: the database volume keeps its old password,
+`lovewall`. Set `POSTGRES_PASSWORD=lovewall`, start once, change it with
+`docker compose exec db psql -U lovewall -c "alter user lovewall password '<new>'"`, put the new one in `.env` and
+run `docker compose up -d` again.
 
 **Client IP and rate limits.** Without a reverse proxy, Lovewall uses the address of each connection and ignores
-`X-Real-IP` / `X-Forwarded-For`, because anyone can forge them. If you put a proxy in front (Caddy, nginx, a load
-balancer), make it set `X-Real-IP` to the visitor's address and set `TRUST_PROXY=1` (there's a commented line in
-`docker-compose.yml`). On Vercel this is automatic.
+`X-Forwarded-For` / `X-Real-IP`, because anyone can forge them. If you put a proxy in front (Caddy, nginx, a load
+balancer), set `TRUST_PROXY=1`: Lovewall then reads only the last `X-Forwarded-For` entry, the one your proxy adds
+(Caddy does this by default; nginx with `proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for`). If your proxy
+overwrites a single header instead, name it in `TRUST_PROXY_HEADER` (`x-real-ip`, `cf-connecting-ip`). Make sure the
+app's port is reachable only through the proxy (Docker: `APP_PORT=127.0.0.1:3000`). When the server sees only
+private addresses and `TRUST_PROXY` is unset, it logs a warning once, because every visitor would then share the
+proxy's rate limits. On Vercel this is automatic.
 
-**Background jobs.** Mail and webhook retries, invite reminders, review syncs, mention searches, AI retries and
+**Background jobs.** Mail and webhook retries, invite reminders, feed syncs, weekly post checks, mention searches, AI retries and
 cleanup run when something calls `GET /api/cron/maintenance` with `Authorization: Bearer $CRON_SECRET`. Vercel does
 it from `vercel.json`; elsewhere add a cron line, every few minutes:
 
@@ -146,7 +169,9 @@ it from `vercel.json`; elsewhere add a cron line, every few minutes:
 ### Vercel + Supabase
 
 1. **Database.** Create a Supabase project. Copy the pooled connection string (Project settings → Database →
-   Connection string → Transaction pooler, port 6543). Lovewall uses it as plain Postgres.
+   Connection string → Transaction pooler, port 6543). Lovewall uses it as plain Postgres. Add `?sslmode=verify-full`
+   to it and set `DATABASE_CA_CERT` to Supabase's CA certificate (Project settings → Database → SSL configuration), so
+   the connection is encrypted and the server's certificate is checked.
 2. **Storage.** In Supabase Storage, create a private bucket named `lovewall`, then create S3 access keys (Storage →
    Settings → S3 access). The endpoint looks like `https://<project>.supabase.co/storage/v1/s3`. Cloudflare R2 or AWS
    S3 work the same way.
@@ -161,16 +186,18 @@ it from `vercel.json`; elsewhere add a cron line, every few minutes:
 8. Optional: custom domains. Set `CUSTOM_DOMAIN_TARGET=cname.vercel-dns.com`, `VERCEL_TOKEN`, `VERCEL_PROJECT_ID`
    (and `VERCEL_TEAM_ID`) so a customer's domain is added to the project, with TLS, when they verify it.
 
-### Hosted vs self-hosted
+### Running it as a service for others
 
-Same code, every feature in both. What differs:
+Same code, every feature. What an operator adds:
 
-- **Billing** exists only when `POLAR_ACCESS_TOKEN` is set. The hosted service starts a 14-day trial at sign-up; when
-  it ends, the dashboard asks for a plan while widgets, wall pages and collect pages keep working.
-- **Limits** (`MAX_*` below) are the hosted defaults; raise them on your server.
-- **AI** runs on the operator's keys. On lovewall.tech they are set; on your server, add your own (below) or leave the
-  AI features off.
-- **Legal pages** show on lovewall.tech. On your server you are the operator: see [Legal](#security-and-legal).
+- **Billing** exists only when `POLAR_ACCESS_TOKEN` is set. With it, a new email address starts a 14-day trial at its
+  first sign-up (signing up again within a year of deleting the account doesn't start another), and trial accounts
+  can invite at most 50 people a day. When the trial ends, the dashboard asks for a plan (the prices are the
+  operator's, in Polar and `src/lib/legal/config.ts`) while widgets, wall pages and collect pages keep working. The
+  landing page shows plan and trial copy only when the variable is set at build time.
+- **Limits** (`MAX_*` below) are defaults for a shared instance; raise them on your own server.
+- **AI** runs on the operator's keys: add your own (below) or leave the AI features off.
+- **Legal pages** are off until you are ready to be the operator: see [Legal](#security-and-legal).
 - **Custom domains** on Vercel are automated through its API; elsewhere, point DNS at your server and let your reverse
   proxy handle TLS.
 
@@ -181,12 +208,18 @@ Every variable is documented in [`.env.example`](.env.example); it and `src/lib/
 
 **App**
 
-| Variable             | What it does                                                                     |
-| -------------------- | -------------------------------------------------------------------------------- |
-| `APP_URL`            | Public URL, no trailing slash; used in links, emails, embeds and auth            |
-| `BETTER_AUTH_SECRET` | Long random string for sessions and signed tokens (production refuses weak ones) |
-| `DATABASE_URL`       | Postgres connection string (Supabase: the pooled one)                            |
-| `DATABASE_POOL_MAX`  | Connections per server instance (default 5; keep small on serverless)            |
+| Variable             | What it does                                                                          |
+| -------------------- | ------------------------------------------------------------------------------------- |
+| `APP_URL`            | Public URL, no trailing slash; used in links, emails, embeds and auth                 |
+| `BETTER_AUTH_SECRET` | Long random string for sessions and signed tokens (production refuses weak ones)      |
+| `DATABASE_URL`       | Postgres connection string (Supabase: the pooled one); TLS by `sslmode`, see below    |
+| `DATABASE_CA_CERT`   | CA certificate for `verify-full` / `verify-ca`, if not a public CA (PEM text or path) |
+| `DATABASE_POOL_MAX`  | Connections per server instance (default 5; keep small on serverless)                 |
+| `POSTGRES_PASSWORD`  | Docker Compose only: password of the bundled Postgres (required there)                |
+
+Database TLS works as in psql: `?sslmode=verify-full` (recommended for any database reached over a network) encrypts
+and checks the server's certificate and host name, `verify-ca` checks the certificate only, `require` encrypts without
+checking, and without `sslmode` the connection is plain.
 
 **Email** (sign-in codes, alerts, invites)
 
@@ -211,14 +244,6 @@ Every variable is documented in [`.env.example`](.env.example); it and `src/lib/
 | `GITHUB_CLIENT_ID`, `GITHUB_CLIENT_SECRET` | GitHub OAuth app; callback `<APP_URL>/api/auth/callback/github`    |
 | `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` | Google OAuth client; callback `<APP_URL>/api/auth/callback/google` |
 
-**Imports** (each source shows only when its key is set)
-
-| Variable                | What it does                                                         |
-| ----------------------- | -------------------------------------------------------------------- |
-| `GOOGLE_PLACES_API_KEY` | Google reviews, Places API (New); Google returns at most 5 per place |
-| `YELP_API_KEY`          | Yelp reviews (Yelp Fusion)                                           |
-| `YOUTUBE_API_KEY`       | YouTube comments (Data API v3); video links import without it        |
-
 **AI** (every AI feature is hidden without its key)
 
 | Variable                          | What it does                                                                                                            |
@@ -232,12 +257,13 @@ Every variable is documented in [`.env.example`](.env.example); it and `src/lib/
 
 | Variable                 | What it does                                                                                    |
 | ------------------------ | ----------------------------------------------------------------------------------------------- |
-| `TRUST_PROXY`            | `1` only behind a reverse proxy that sets `X-Real-IP` / `X-Forwarded-For`                       |
+| `TRUST_PROXY`            | `1` only behind a reverse proxy; then the last `X-Forwarded-For` entry is the client            |
+| `TRUST_PROXY_HEADER`     | With `TRUST_PROXY=1`: one header your proxy always overwrites (`x-real-ip`, `cf-connecting-ip`) |
 | `RATE_LIMIT_PER_MINUTE`  | Requests one IP may make per minute to one instance before 429s (default 1200, 0 = off)         |
 | `CRON_SECRET`            | Protects `/api/cron/maintenance` (production refuses weak ones)                                 |
 | `WEBHOOKS_ALLOW_PRIVATE` | `1` lets webhooks and Slack/Discord links reach private addresses and plain http (your own LAN) |
 
-**Limits** (hosted defaults; raise them when self-hosting)
+**Limits** (defaults; raise them for a bigger instance)
 
 | Variable                            | Default |
 | ----------------------------------- | ------- |
@@ -262,15 +288,15 @@ Every variable is documented in [`.env.example`](.env.example); it and `src/lib/
 | `POLAR_ACCESS_TOKEN`                            | [Polar](https://polar.sh) organization token; turns billing on   |
 | `POLAR_WEBHOOK_SECRET`                          | Signing secret of the webhook at `<APP_URL>/api/billing/webhook` |
 | `POLAR_SERVER`                                  | `sandbox` or `production` (default)                              |
-| `POLAR_PRODUCT_MONTHLY`, `POLAR_PRODUCT_YEARLY` | Product ids of the $9 monthly and $90 yearly plans               |
+| `POLAR_PRODUCT_MONTHLY`, `POLAR_PRODUCT_YEARLY` | Product ids of your monthly and yearly plans                     |
 
 **Legal pages**
 
-| Variable      | What it does                                                                                   |
-| ------------- | ---------------------------------------------------------------------------------------------- |
-| `LEGAL_PAGES` | `true` shows `/legal` (also at build time, for the landing footer); automatic on lovewall.tech |
+| Variable      | What it does                                                                                      |
+| ------------- | ------------------------------------------------------------------------------------------------- |
+| `LEGAL_PAGES` | `true` shows `/legal` (also at build time, for the landing footer); see `src/lib/legal/config.ts` |
 
-**Testing only** (leave empty in production): `X_OEMBED_ENDPOINT`, `X_SYNDICATION_ENDPOINT`, `POLAR_API_URL`,
+**Testing only** (leave empty in production): `X_OEMBED_ENDPOINT`, `POLAR_API_URL`,
 `DNS_OVER_HTTPS_URL`, `VERCEL_API_URL`, `IMPORT_TEST_ENDPOINT`, `ANTHROPIC_BASE_URL`, `DEEPGRAM_API_URL` point the
 end-to-end tests at mocks. `S3_CORS_ORIGINS` is read by `pnpm storage:setup` (extra origins allowed to PUT).
 
@@ -279,7 +305,7 @@ end-to-end tests at mocks. `S3_CORS_ORIGINS` is read by `pnpm storage:setup` (ex
 Every widget has an id. Paste this where the testimonials should appear:
 
 ```html
-<script src="https://lovewall.tech/embed.js" defer></script>
+<script src="https://YOUR_LOVEWALL/embed.js" defer></script>
 <div data-lovewall="WIDGET_ID"></div>
 ```
 
@@ -292,7 +318,7 @@ export function Testimonials() {
   return (
     <>
       <div data-lovewall="WIDGET_ID" />
-      <Script src="https://lovewall.tech/embed.js" strategy="lazyOnload" />
+      <Script src="https://YOUR_LOVEWALL/embed.js" strategy="lazyOnload" />
     </>
   );
 }
@@ -301,10 +327,10 @@ export function Testimonials() {
 Plain iframe (no script; set the height yourself):
 
 ```html
-<iframe src="https://lovewall.tech/embed/WIDGET_ID" title="Testimonials" loading="lazy" style="width:100%;border:0" height="640"></iframe>
+<iframe src="https://YOUR_LOVEWALL/embed/WIDGET_ID" title="Testimonials" loading="lazy" style="width:100%;border:0" height="640"></iframe>
 ```
 
-Replace `https://lovewall.tech` with your own `APP_URL` when self-hosting. The script also picks up `[data-lovewall]`
+`YOUR_LOVEWALL` is your instance's host (`APP_URL`); the widget's Embed sheet fills it in for you. The script also picks up `[data-lovewall]`
 elements added later (single-page apps); a popup widget floats over the page (`data-lovewall-float`). Step-by-step
 guides for HTML, React, Webflow, WordPress, Shopify, Framer, Squarespace, Wix, Carrd, Ghost, Notion, Bubble and Kajabi
 live at `/guides`.
@@ -344,7 +370,7 @@ Other routes:
 
 ## Security and legal
 
-- [`SECURITY.md`](SECURITY.md): how to report a vulnerability.
+- [`SECURITY.md`](SECURITY.md): how to report a vulnerability (privately, through GitHub).
 - [`docs/security/audit.md`](docs/security/audit.md): the audit, what was found and fixed;
   [`docs/security/routes.md`](docs/security/routes.md): every route with its auth, rate limit and validation.
   `node scripts/scan-secrets.mjs` checks a build for leaked env values.
@@ -352,9 +378,9 @@ Other routes:
   in the app, SSRF-safe server fetches, private file storage with presigned uploads, hashed tokens and API keys,
   signed webhooks, Postgres-backed rate limits that work on serverless.
 - `/legal` holds the Terms, Privacy Policy, cookie notice, DPA, subprocessors, acceptable use, refunds and security
-  pages of the hosted service. When you self-host, **you** are the operator and the pages are off by default: put your
-  own name, contact addresses and jurisdiction in `src/lib/legal/config.ts`, adapt the text to your setup, and set
-  `LEGAL_PAGES=true` (at build time too). [`docs/legal/data-inventory.md`](docs/legal/data-inventory.md) lists what the
+  pages for an instance run as a service. They are off by default: when you want them, put your own name, contact
+  addresses and jurisdiction in `src/lib/legal/config.ts` (without an address the pages say "the operator of this
+  instance"), adapt the text to your setup, and set `LEGAL_PAGES=true` (at build time too). [`docs/legal/data-inventory.md`](docs/legal/data-inventory.md) lists what the
   app stores and why; [`docs/legal/incident-runbook.md`](docs/legal/incident-runbook.md) is the breach runbook.
 
 ## How it's built
@@ -386,4 +412,10 @@ Questions and bugs: [GitHub issues](https://github.com/NikhilDhaliya/lovewall/is
 
 ## License
 
-[AGPL-3.0](LICENSE). Copyright (c) 2026 Nikhil Dhaliya.
+- The app is [AGPL-3.0-only](LICENSE). Copyright (c) 2026 Nikhil Dhaliya.
+- `public/embed.js`, the loader that websites include, is [MIT](LICENSE-embed), so embedding a widget never puts your
+  site under the AGPL.
+- The WordPress plugin (`integrations/wordpress`) is GPL-2.0-or-later, as WordPress.org requires.
+- Brand icons shown next to imported reviews come from [Simple Icons](https://simpleicons.org) (CC0). The names and
+  logos of X, Google, Trustpilot, G2, Senja, Testimonial.to and the other sites mentioned here are trademarks of their
+  owners; Lovewall isn't affiliated with or endorsed by any of them.

@@ -72,15 +72,20 @@ async function rename(name: string, formSlug: string) {
   await expect(page.getByText("Link updated")).toBeVisible();
 }
 
-function hostGet(host: string, p: string): Promise<{ status: number; body: string; cookies: string[] }> {
+function hostGet(
+  host: string,
+  p: string,
+  opts: { method?: string; headers?: Record<string, string>; body?: string } = {},
+): Promise<{ status: number; body: string; cookies: string[] }> {
   return new Promise((resolve, reject) => {
-    const req = httpRequest({ host: "127.0.0.1", port: PORT, path: p, headers: { Host: host, "x-real-ip": "10.66.250.1" } }, (res) => {
+    const headers = { Host: host, "x-real-ip": "10.66.250.1", ...opts.headers };
+    const req = httpRequest({ host: "127.0.0.1", port: PORT, path: p, method: opts.method ?? "GET", headers }, (res) => {
       let body = "";
       res.on("data", (c) => (body += c));
       res.on("end", () => resolve({ status: res.statusCode ?? 0, body, cookies: (res.headers["set-cookie"] as string[]) ?? [] }));
     });
     req.on("error", reject);
-    req.end();
+    req.end(opts.body);
   });
 }
 
@@ -452,10 +457,16 @@ test("the collect page speaks the visitor's language", async ({ browser }) => {
 test("invites: a prefilled link, open and click tracking, a reminder, and unsubscribe", async ({ browser, request }) => {
   const grace = `grace+${stamp}@lovewall.test`;
   const alan = `alan+${stamp}@lovewall.test`;
+  // The footer's mailing address lives in the space's settings; the invites page says when it's missing.
   await page.goto(`/app/${spaceId}/collect/invites`);
-  await page.getByLabel("Postal address").fill("1 Main St, Springfield");
-  await page.getByLabel("Subject").click();
-  await expect(page.getByText("Address saved")).toBeVisible();
+  await page.getByTestId("no-address").getByRole("link", { name: "Add" }).click();
+  await page.waitForURL(/\/settings/);
+  await page.getByLabel("Mailing address").fill("1 Main St, Springfield");
+  await page.getByLabel("Website").click();
+  await expect(page.getByText("Saved")).toBeVisible();
+  expect(await axe(page)).toEqual([]);
+  await page.goto(`/app/${spaceId}/collect/invites`);
+  await expect(page.getByTestId("no-address")).toHaveCount(0);
   await page.getByLabel("People").fill(`Grace Hopper, ${grace}\nAlan Turing <${alan}>\nnot-an-email`);
   await expect(page.getByText("2 people")).toBeVisible();
   await page.getByRole("button", { name: "Send to 2" }).click();
@@ -558,7 +569,32 @@ test("a custom domain serves only this space's forms and wall pages", async () =
   await page.goto(`/app/${spaceId}/widgets`);
   const wallHref = await page.getByRole("link", { name: /Wall of love/ }).getAttribute("href");
   const wallId = wallHref!.split("/").pop()!;
-  expect((await hostGet(domain, `/w/${wallId}`)).status).toBe(200);
+  const wall = await hostGet(domain, `/w/${wallId}`);
+  expect(wall.status).toBe(200);
+  // Its Report and "Made with Lovewall" links lead to the app (on the domain, "/" is the form and /r/ isn't served).
+  expect(wall.body).toContain(`href="http://localhost:${PORT}/r/${wallId}"`);
+  expect(wall.body).not.toMatch(/href="\/(r\/|\?ref=)/);
+  // The wall page's view counts and the form's spelling help reach the app through the domain.
+  const chrome = "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/141.0.0.0 Safari/537.36";
+  const beacon = await hostGet(domain, "/api/e", {
+    method: "POST",
+    headers: { "sec-fetch-site": "same-origin", referer: `https://${domain}/w/${wallId}`, "user-agent": chrome },
+    body: JSON.stringify({ w: wallId, t: "view", h: "ignored.example" }),
+  });
+  expect(beacon.status).toBe(204);
+  const client = db();
+  await client.connect();
+  const hosts = (await client.query("select host from widget_stats where widget_id = $1 and views > 0", [wallId])).rows.map((r) => r.host);
+  await client.end();
+  expect(hosts).toContain(domain);
+  expect(hosts).not.toContain("ignored.example");
+  // The polish route answers itself (400 for an empty body), where an unrouted path would be the domain's 404.
+  const polish = await hostGet(domain, `/api/collect/${spaceId}/polish`, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: "{}",
+  });
+  expect(polish.status).toBe(400);
   for (const p of ["/app", "/login", "/api/auth/get-session", "/w/AAAAAAAAAAAA", `/api/v1/widgets/${wallId}`, "/embed.js"]) {
     expect((await hostGet(domain, p)).status, p).toBe(404);
   }

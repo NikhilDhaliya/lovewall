@@ -28,7 +28,7 @@ export function AiWidgetOptions({
           options={[{ value: "__original", label: "As written" }, ...LANGUAGES.map((l) => ({ value: l.code, label: l.name }))]}
         />
       </Row>
-      {config.language && <p className="-mt-2 text-[13px] text-muted">New translations appear in a minute.</p>}
+      {config.language && <p className="-mt-2 text-[13px] text-muted">Translations show once approved.</p>}
     </Section>
   );
 }

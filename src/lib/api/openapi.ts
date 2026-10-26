@@ -35,6 +35,13 @@ const testimonialFields = {
   featured: { type: "boolean" },
 };
 
+// Set by the rewards feature, never by the API: shown wherever the testimonial is.
+const rewarded = {
+  type: "boolean",
+  readOnly: true,
+  description: "The giver claimed a reward for it. Widgets and wall pages say so; show it when you display the testimonial.",
+};
+
 export function openapiDocument(appUrl: string) {
   return {
     openapi: "3.1.0",
@@ -253,10 +260,11 @@ export function openapiDocument(appUrl: string) {
       schemas: {
         Testimonial: {
           type: "object",
-          required: ["id", "status", "featured", "text", "name", "source", "tags", "given_at", "created_at", "updated_at"],
+          required: ["id", "status", "featured", "rewarded", "text", "name", "source", "tags", "given_at", "created_at", "updated_at"],
           properties: {
             id: { type: "string", examples: ["k3Jd8sLq2PzA"] },
             ...testimonialFields,
+            rewarded,
             avatar_url: nullable("string", { format: "uri" }),
             video_url: nullable("string", { format: "uri" }),
             image_url: nullable("string", { format: "uri" }),

@@ -36,7 +36,7 @@ async function customDomain(request: NextRequest, site: { spaceId: string; slug:
   if (!route) return notFound();
   const headers = new Headers(request.headers);
   headers.delete("cookie");
-  if (route.kind === "asset") return NextResponse.next({ request: { headers } });
+  if (route.kind === "asset" || route.kind === "beacon") return NextResponse.next({ request: { headers } });
   if (route.kind === "collect-api") return route.spaceId === site.spaceId ? NextResponse.next({ request: { headers } }) : notFound();
   if (route.kind === "wall") {
     if (!(await widgetInSpace(route.id, site.spaceId))) return notFound();
@@ -94,14 +94,9 @@ export async function proxy(request: NextRequest) {
   return response;
 }
 
+// Every request but static build files, prefetches included: skipping requests that carry a prefetch header (as
+// Next's CSP guide suggests, to save work) would let anyone skip the flood gate and the custom-domain rules by adding
+// that header.
 export const config = {
-  matcher: [
-    {
-      source: "/((?!_next/static|_next/image|favicon\\.ico).*)",
-      missing: [
-        { type: "header", key: "next-router-prefetch" },
-        { type: "header", key: "purpose", value: "prefetch" },
-      ],
-    },
-  ],
+  matcher: ["/((?!_next/static|_next/image|favicon\\.ico).*)"],
 };

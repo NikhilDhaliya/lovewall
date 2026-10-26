@@ -135,7 +135,7 @@ test.describe("pure parts", () => {
         name: "<!channel> Eve",
         text: "Hi <https://evil.example|click> @everyone",
         rating: 5,
-        inbox_url: "https://lovewall.tech/app/x",
+        inbox_url: "https://testimonials.example.com/app/x",
       },
     };
     const slack = JSON.stringify(slackMessage(payload, "Acme"));

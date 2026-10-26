@@ -1,10 +1,8 @@
 // Shared by every trigger and action: the API address, the Bearer header, readable errors, REST hooks.
 
-export const DEFAULT_APP_URL = "https://lovewall.tech";
-
-// The connection's Lovewall address without a trailing slash ("lovewall.tech" works too).
+// The connection's Lovewall address without a trailing slash ("testimonials.example.com" works too).
 export function appUrl(bundle) {
-  const raw = String(bundle.authData?.app_url || DEFAULT_APP_URL)
+  const raw = String(bundle.authData?.app_url || "")
     .trim()
     .replace(/\/+$/, "");
   return /^https?:\/\//i.test(raw) ? raw : `https://${raw}`;

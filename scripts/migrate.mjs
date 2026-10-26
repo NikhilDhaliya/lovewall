@@ -4,6 +4,7 @@ import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import pg from "pg";
+import { pgConnection } from "./db-ssl.mjs";
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
 for (const file of [".env.local", ".env"]) {
@@ -21,8 +22,7 @@ const dir = join(root, "db", "migrations");
 const files = readdirSync(dir)
   .filter((f) => f.endsWith(".sql"))
   .sort();
-const ssl = /sslmode=require/.test(url) || /supabase\.(co|com)/.test(url) ? { rejectUnauthorized: false } : undefined;
-const client = new pg.Client({ connectionString: url, ssl });
+const client = new pg.Client(pgConnection(url));
 
 await client.connect();
 try {

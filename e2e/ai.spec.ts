@@ -306,6 +306,8 @@ test.describe("AI on", () => {
     await page.getByRole("option", { name: "Deutsch" }).click();
     await sheet.getByRole("button", { name: "Translate" }).click();
     await expect(sheet.getByTestId("translations")).toContainText(`[de] ${LONG}`);
+    // Machine-made: it waits for a member's approval before anything public shows it.
+    await expect(sheet.getByRole("button", { name: "Approve Deutsch" })).toBeVisible();
     expect(await axe(page)).toEqual([]);
     await page.keyboard.press("Escape");
 
@@ -315,14 +317,50 @@ test.describe("AI on", () => {
     await expect(page.getByText("Saved")).toBeVisible();
     const preview = page.frameLocator('iframe[title="Widget preview"]');
     await expect(preview.locator("mark.lw-hl")).toHaveText(BEST);
+    // The configurator autosaves after a moment: wait for that save before leaving the page.
+    const saved = page.waitForRequest(
+      (r) => r.method() === "POST" && Boolean(r.headers()["next-action"]) && (r.postData() ?? "").includes('"language":"es"'),
+    );
     await page.getByRole("combobox", { name: "Language" }).click();
     await page.getByRole("option", { name: "Español" }).click();
-    await expect(page.getByText("New translations appear in a minute.")).toBeVisible();
+    await expect(page.getByText("Translations show once approved.")).toBeVisible();
+    await (await saved).response();
+
+    // The background job translates the widget's testimonials; they wait in the testimonial's edit sheet.
+    const edit = page.getByRole("dialog", { name: "Edit testimonial" });
+    await eventually(page, `/app/${spaceId}`, async () => {
+      await page.getByRole("radio", { name: /Approved/ }).click();
+      await row(page, "Vera Visitor").hover();
+      await row(page, "Vera Visitor").getByRole("button", { name: "More" }).click();
+      await page.getByRole("menuitem", { name: "Edit" }).click();
+      await expect(edit.locator('[data-lang="es"]')).toContainText(`[es] ${LONG}`, { timeout: 2000 });
+    });
+    // Until then the widget and the public API keep the testimonial's own words.
+    const embed = async () => (await page.request.get(`/embed/${wallId}`)).text();
+    const api = async () => (await page.request.get(`/api/v1/widgets/${wallId}`)).text();
+    expect(await embed()).not.toContain("[es] ");
+    expect(await api()).not.toContain("[es] ");
+    expect(await embed()).not.toContain("[de] ");
+
+    await edit.getByRole("button", { name: "Discard Deutsch" }).click();
+    await expect(edit.locator('[data-lang="de"]')).toHaveCount(0);
+    await edit.getByRole("button", { name: "Approve Español" }).click();
+    await expect(edit.locator('[data-lang="es"]').getByText("Approved")).toBeVisible();
+    expect(await axe(page)).toEqual([]);
+    await page.keyboard.press("Escape");
     await expect(async () => {
-      const html = await (await page.request.get(`/embed/${wallId}`)).text();
+      const html = await embed();
       expect(html).toContain(`<mark class="lw-hl">${BEST}</mark>`);
       expect(html).toContain("[es] ");
     }).toPass({ timeout: 30_000 });
+    expect(await api()).toContain("[es] ");
+    // A discarded translation stays gone (also from the Translate sheet).
+    await row(page, "Vera Visitor").hover();
+    await row(page, "Vera Visitor").getByRole("button", { name: "More" }).click();
+    await page.getByRole("menuitem", { name: "Translate" }).click();
+    await expect(sheet.locator('[data-lang="es"]')).toContainText("Approved");
+    await expect(sheet.locator('[data-lang="de"]')).toHaveCount(0);
+    await page.keyboard.press("Escape");
   });
 
   test("summary of the testimonials, with real quotes only", async () => {

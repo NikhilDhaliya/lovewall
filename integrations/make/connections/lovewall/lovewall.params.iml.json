@@ -4,11 +4,10 @@
     "type": "text",
     "label": "Lovewall URL",
     "required": true,
-    "default": "https://lovewall.tech",
     "validate": {
       "pattern": "^https?://[A-Za-z0-9.-]+(:[0-9]+)?$"
     },
-    "help": "Keep `https://lovewall.tech` unless you host Lovewall yourself. No trailing slash."
+    "help": "The address of your Lovewall (the hosted service you signed up to, or your own server), such as `https://testimonials.example.com`. No trailing slash."
   },
   {
     "name": "apiKey",

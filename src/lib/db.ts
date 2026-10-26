@@ -1,5 +1,6 @@
 import "server-only";
 import { Pool, type PoolClient, type QueryResultRow } from "pg";
+import { pgConnection } from "../../scripts/db-ssl.mjs";
 
 // One pool per server instance (kept across hot reloads in dev). Small, because serverless functions are many.
 const globalForDb = globalThis as unknown as { lovewallPool?: Pool };
@@ -7,10 +8,10 @@ const globalForDb = globalThis as unknown as { lovewallPool?: Pool };
 // Created lazily and never connects at import time, so `next build` works without a database.
 export function pool(): Pool {
   if (!globalForDb.lovewallPool) {
-    const url = process.env.DATABASE_URL ?? "";
-    const ssl = /sslmode=require/.test(url) || /supabase\.(co|com)/.test(url) ? { rejectUnauthorized: false } : undefined;
+    // TLS follows sslmode in DATABASE_URL, as in libpq (see scripts/db-ssl.mjs).
+    const { connectionString, ssl } = pgConnection(process.env.DATABASE_URL ?? "");
     globalForDb.lovewallPool = new Pool({
-      connectionString: url || undefined,
+      connectionString,
       ssl,
       max: Number(process.env.DATABASE_POOL_MAX) || 5,
       idleTimeoutMillis: 10_000,

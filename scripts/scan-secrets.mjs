@@ -20,6 +20,7 @@ const PUBLIC = new Set([
   "SMTP_PORT",
   "SMTP_SECURE",
   "TRUST_PROXY",
+  "TRUST_PROXY_HEADER",
   // A host name, not a secret (and "localhost" in development, which every page mentions).
   "SMTP_HOST",
 ]);

@@ -33,6 +33,8 @@ export async function GET(request: Request, ctx: RouteContext<"/api/v1/widgets/[
         poster: t.poster,
         date: t.date,
         featured: t.featured,
+        // True when the giver claimed a reward for it: show that next to the testimonial.
+        rewarded: t.rewarded ?? false,
       })),
     },
     { headers: { ...CORS, "Cache-Control": "public, max-age=60, s-maxage=60, stale-while-revalidate=600" } },

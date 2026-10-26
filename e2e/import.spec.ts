@@ -1,20 +1,72 @@
 import AxeBuilder from "@axe-core/playwright";
 import { expect, test, type BrowserContext, type Page } from "@playwright/test";
+import { existsSync } from "node:fs";
 import path from "node:path";
-import { csvToRows, detectPreset } from "../src/lib/csv";
-import { htmlText, jsonLdReviews, sniff, stars } from "../src/lib/import/parse";
-import { detectSource, sourceLabel, sourceOf } from "../src/lib/sources";
+import pg from "pg";
+import { csvToRows, decodeText, detectPreset, fileToRows } from "../src/lib/csv";
+import { htmlText, sniff, stars } from "../src/lib/import/parse";
+import { detectSource, sourceLabel, sourceOf, SOURCES } from "../src/lib/sources";
 import { createSpace, mailTo, newContext, signIn, SITE, uniqueEmail } from "./helpers";
 
-// Imports end to end: every third party is the mock in e2e/mocks/import.mjs (IMPORT_TEST_ENDPOINT).
+// Imports end to end: every official feed and API is the mock in e2e/mocks/import.mjs (IMPORT_TEST_ENDPOINT).
+
+for (const file of [".env.local", ".env"]) if (existsSync(file)) process.loadEnvFile(file);
+
+async function sql(text: string, params: unknown[] = []) {
+  const client = new pg.Client({ connectionString: process.env.DATABASE_URL });
+  await client.connect();
+  try {
+    return (await client.query(text, params)).rows;
+  } finally {
+    await client.end();
+  }
+}
+
+// A Google Business Profile reviews.json from Google Takeout, and a Google Play Console reviews CSV (UTF-16).
+const TAKEOUT = JSON.stringify({
+  reviews: [
+    {
+      name: "accounts/1/locations/2/reviews/a",
+      reviewer: { displayName: "Lena Vogel", profilePhotoUrl: "https://lh3.googleusercontent.com/a/x" },
+      starRating: "FIVE",
+      comment: "Best flat white in Kreuzberg.",
+      createTime: "2026-09-05T13:22:37.087133Z",
+      updateTime: "2026-09-05T13:22:37.087133Z",
+    },
+    {
+      name: "accounts/1/locations/2/reviews/b",
+      reviewer: { displayName: "Marco Rossi" },
+      starRating: "FOUR",
+      comment: "(Translated by Google) Cozy and quiet.\n\n(Original)\nGemütlich und ruhig.",
+      createTime: "2026-09-01T08:00:00Z",
+    },
+    {
+      name: "accounts/1/locations/2/reviews/c",
+      reviewer: { displayName: "Rating only" },
+      starRating: "THREE",
+      createTime: "2026-08-01T08:00:00Z",
+    },
+  ],
+});
+const PLAY_CSV =
+  "Package Name,App Version Code,App Version Name,Reviewer Language,Device,Review Submit Date and Time,Review Submit Millis Since Epoch,Review Last Update Date and Time,Review Last Update Millis Since Epoch,Star Rating,Review Title,Review Text,Developer Reply Date and Time,Developer Reply Millis Since Epoch,Developer Reply Text,Review Link\n" +
+  "com.northwind.notes,12,1.2.0,en,pixel,2026-10-01T10:00:00Z,1790000000000,2026-10-01T10:00:00Z,1790000000000,5,,Syncs before I put the phone down.,,,,https://play.google.com/apps/publish/?dev_acc=1#ReviewPlace:id=1\n" +
+  "com.northwind.notes,12,1.2.0,en,pixel,2026-10-02T10:00:00Z,1790000000000,2026-10-02T10:00:00Z,1790000000000,4,,,,,,\n";
+const utf16 = (text: string) => Buffer.from(`\uFEFF${text}`, "utf16le");
 
 test("sources: links are detected, stored values map back", () => {
-  expect(detectSource("https://apps.apple.com/us/app/notes/id111111111")?.id).toBe("appstore");
-  expect(detectSource("play.google.com/store/apps/details?id=com.acme")?.id).toBe("googleplay");
-  expect(detectSource("https://www.google.com/maps/place/Northwind+Cafe")?.id).toBe("google");
-  expect(detectSource("https://news.ycombinator.com/item?id=1")?.id).toBe("hackernews");
-  expect(detectSource("https://youtu.be/dQw4w9WgXcQ")?.id).toBe("youtube");
-  expect(detectSource("https://www.linkedin.com/posts/x")?.how).toBe("paste");
+  expect(detectSource("https://apps.apple.com/us/app/notes/id111111111")).toMatchObject({ id: "appstore", how: "fetch", sync: true });
+  expect(detectSource("https://wordpress.org/plugins/acme/")).toMatchObject({ id: "wordpress", how: "fetch", sync: true });
+  expect(detectSource("https://news.ycombinator.com/item?id=1")?.how).toBe("fetch");
+  expect(detectSource("https://youtu.be/dQw4w9WgXcQ")?.how).toBe("fetch");
+  expect(detectSource("https://x.com/ada_example/status/1")?.how).toBe("fetch");
+  // Sites without an official feed, API or oEmbed endpoint come in by hand.
+  expect(detectSource("play.google.com/store/apps/details?id=com.acme")).toMatchObject({ id: "googleplay", how: "hand" });
+  expect(detectSource("https://www.google.com/maps/place/Northwind+Cafe")).toMatchObject({ id: "google", how: "hand" });
+  for (const link of ["trustpilot.com/review/acme.com", "g2.com/products/acme", "reddit.com/r/x/comments/abc", "linkedin.com/posts/x"]) {
+    expect(detectSource(link)?.how, link).toBe("hand");
+  }
+  expect(SOURCES.filter((s) => s.sync).map((s) => s.id)).toEqual(["appstore", "wordpress"]);
   expect(detectSource("just some words")).toBeNull();
   expect(sourceLabel("twitter")).toBe("X");
   expect(sourceLabel("Play Store")).toBe("Google Play");
@@ -22,27 +74,10 @@ test("sources: links are detected, stored values map back", () => {
   expect(sourceOf("Product Hunt")?.icon).toBeTruthy();
 });
 
-test("parsers: HTML to text, JSON-LD reviews, ratings, file types", () => {
+test("parsers: HTML to text, ratings, file types", () => {
   expect(htmlText("<p>One &amp; two</p><p>Three<br>four</p><script>x()</script>")).toBe("One & two\n\nThree\nfour");
   expect(stars(8, 10)).toBe(4);
   expect(stars(0)).toBeNull();
-  const html = `<script type="application/ld+json">${JSON.stringify({
-    "@type": "Product",
-    name: "Acme",
-    aggregateRating: { ratingValue: 4.8 },
-    review: [
-      {
-        "@type": "Review",
-        "@id": "https://example.com/r/1",
-        reviewBody: "<p>Great</p>",
-        reviewRating: { ratingValue: 5 },
-        author: { name: "Ada" },
-      },
-    ],
-  })}</script>`;
-  const found = jsonLdReviews(html, "https://example.com/p");
-  expect(found.label).toBe("Acme");
-  expect(found.items[0]).toMatchObject({ url: "https://example.com/r/1", name: "Ada", text: "Great", rating: 5 });
   expect(sniff(new Uint8Array([0x89, 0x50, 0x4e, 0x47, 0, 0]))).toBe("image/png");
   expect(sniff(Buffer.from("000000186674797069736f6d", "hex"))).toBe("video/mp4");
   expect(sniff(Buffer.from("<html>"))).toBeNull();
@@ -81,6 +116,55 @@ test("CSV presets: Senja and Testimonial.to exports", () => {
   });
   // HLS links can't be copied: that row keeps no video (and no text), so the import skips it.
   expect(tto.rows[1]?.video).toBeUndefined();
+});
+
+test("export presets: Google Takeout, Google Play, Yotpo and Judge.me", () => {
+  const google = fileToRows(TAKEOUT);
+  expect(google.preset).toBe("google");
+  expect(google.rows[0]).toEqual({
+    name: "Lena Vogel",
+    text: "Best flat white in Kreuzberg.",
+    rating: "5",
+    date: "2026-09-05T13:22:37.087133Z",
+    source: "Google",
+  });
+  // Google's translation is dropped: the author's own words stay. No photos are taken from the export.
+  expect(google.rows[1]).toMatchObject({ name: "Marco Rossi", text: "Gemütlich und ruhig.", rating: "4" });
+  expect(google.rows[2]).toMatchObject({ name: "Rating only", rating: "3" });
+  expect(google.rows[2].text).toBeUndefined();
+  expect(fileToRows('{"other": []}').missing).toEqual(["name", "text"]);
+
+  const play = fileToRows(decodeText(utf16(PLAY_CSV)));
+  expect(play.preset).toBe("googleplay");
+  expect(play.missing).toEqual([]);
+  expect(play.rows[0]).toEqual({
+    name: "Google Play user",
+    text: "Syncs before I put the phone down.",
+    rating: "5",
+    date: "2026-10-01T10:00:00Z",
+    source: "Google Play",
+  });
+  expect(play.rows).toHaveLength(2);
+
+  const yotpo = csvToRows(
+    "app_key,Review ID,Review Creation Date,Review Type,Review Status,Status Details,Review Source,Review Score,Review Title,Review Content,Reviewer Display Name,Reviewer Email\n" +
+      "k,1,2026-09-01,Site review,Published,,Email,5,Love it,Arrived in two days.,Ada L.,ada@example.com\n" +
+      "k,2,2026-09-02,Site review,Rejected,,Email,1,Spam,Buy followers,Bot,bot@example.com\n",
+  );
+  expect(yotpo.preset).toBe("yotpo");
+  expect(yotpo.rows).toEqual([{ name: "Ada L.", text: "Arrived in two days.", rating: "5", date: "2026-09-01", source: "Form" }]);
+
+  const judgeme = csvToRows(
+    "title,body,rating,review_date,source,curated,reviewer_name,reviewer_email,product_id,product_handle,reply,reply_date,picture_urls,ip_address,location\n" +
+      "Great mug,Keeps coffee hot for hours.,5,2026-09-03 10:00:00 UTC,web,ok,Grace H.,g@example.com,1,mug,,,,,\n" +
+      "x,spam text,1,2026-09-03 10:00:00 UTC,web,spam,Spammer,s@example.com,1,mug,,,,,\n",
+  );
+  expect(judgeme.preset).toBe("judgeme");
+  expect(judgeme.rows).toHaveLength(1);
+  expect(judgeme.rows[0]).toMatchObject({ name: "Grace H.", text: "Keeps coffee hot for hours.", rating: "5", source: "Form" });
+
+  // Tab-separated files work like comma-separated ones.
+  expect(csvToRows("name\ttext\nAda\tLovely, really\n").rows[0]).toEqual({ name: "Ada", text: "Lovely, really" });
 });
 
 test.describe.serial("import flow", () => {
@@ -153,29 +237,7 @@ test.describe.serial("import flow", () => {
     await expect(page.locator("[data-id]")).toHaveCount(3);
   });
 
-  test("Trustpilot from the source list", async () => {
-    await openImport();
-    await page.getByRole("button", { name: "Trustpilot" }).click();
-    await page.getByLabel("Trustpilot link").fill("northwind.example");
-    await page.getByRole("button", { name: "Find" }).click();
-    await expect(page.getByRole("heading", { name: "Northwind" })).toBeVisible();
-    await page.getByRole("button", { name: "Import 2" }).click();
-    await expect(page.getByText("Imported 2")).toBeVisible();
-    await expect(row("Northwind support answered in minutes & fixed it.")).toBeVisible();
-    // The reviewer's photo was copied into storage.
-    await loaded(row("answered in minutes").locator('img[src*="/api/files/"]'));
-    await expect(row("answered in minutes").getByRole("link", { name: "Trustpilot" })).toHaveAttribute(
-      "href",
-      "https://www.trustpilot.com/reviews/tp-0001",
-    );
-  });
-
-  test("a Reddit comment and a Hacker News reply", async () => {
-    await pasteLink("https://www.reddit.com/r/productivity/comments/abc123/anyone_using_northwind/c0ment1/");
-    await expect(page.getByLabel("Import review from quiet_river")).toBeChecked();
-    await page.getByRole("button", { name: "Import 1" }).click();
-    await expect(row("Switched to Northwind last year, never looked back.")).toBeVisible();
-
+  test("a Hacker News reply", async () => {
     await pasteLink("https://news.ycombinator.com/item?id=4242");
     await expect(page.getByRole("heading", { name: "Show HN: Northwind, notes that sync" })).toBeVisible();
     // A thread starts with nothing ticked.
@@ -185,39 +247,112 @@ test.describe.serial("import flow", () => {
     await expect(row("Been using Northwind for a month. It's quick.")).toBeVisible();
   });
 
-  test("a YouTube video keeps its thumbnail and link", async () => {
+  test("a YouTube video keeps its title, channel and link, and follows the video", async ({ request }) => {
     await pasteLink("https://youtu.be/mockvideo01");
     await expect(page.getByRole("heading", { name: "Northwind in 60 seconds" })).toBeVisible();
+    await expect(page.getByText("Removed here if the video is deleted")).toBeVisible();
     await page.getByRole("button", { name: "Import 1" }).click();
     const video = row("Northwind in 60 seconds");
-    await loaded(video.getByRole("img", { name: "Screenshot from Desk Setups" }));
     await expect(video.getByRole("link", { name: "YouTube" })).toHaveAttribute("href", "https://www.youtube.com/watch?v=mockvideo01");
+    // No copy of YouTube's thumbnail.
+    await expect(video.locator('img[src*="/api/files/"]')).toHaveCount(0);
+
+    // A week later the cron looks again: the new title comes along while the owner hasn't edited it...
+    const cron = () => request.get("/api/cron/maintenance", { headers: { Authorization: "Bearer e2e-cron-secret" } });
+    const age = () =>
+      sql("update testimonials set checked_at = now() - interval '8 days' where space_id = $1 and source = 'YouTube'", [spaceId]);
+    await fetch(`${SITE}/import/__stage?video=mockvideo01&state=renamed`);
+    await age();
+    expect((await cron()).status()).toBe(200);
+    await page.reload();
+    await expect(row("Northwind in 59 seconds")).toBeVisible();
+    // ...and once the video is deleted, the testimonial goes too.
+    await fetch(`${SITE}/import/__stage?video=mockvideo01&state=gone`);
+    await age();
+    expect((await (await cron()).json()).imports).toHaveProperty("recheck.removed");
+    await page.reload();
+    await page.getByRole("radio", { name: /^All/ }).click();
+    await expect(row("Northwind in 59 seconds")).toHaveCount(0);
+    expect(await sql("select 1 from testimonials where space_id = $1 and source = 'YouTube'", [spaceId])).toHaveLength(0);
   });
 
-  test("Google reviews by business name", async () => {
+  test("an owner's edit is kept when the post changes", async ({ request }) => {
+    await fetch(`${SITE}/import/__stage?video=mockvideo01&state=`);
+    await pasteLink("https://youtu.be/mockvideo01");
+    await page.getByRole("button", { name: "Import 1" }).click();
+    await expect(row("Northwind in 60 seconds")).toBeVisible();
+    await sql("update testimonials set text = 'Watch our 60 second tour.' where space_id = $1 and source = 'YouTube'", [spaceId]);
+    await fetch(`${SITE}/import/__stage?video=mockvideo01&state=renamed`);
+    await sql("update testimonials set checked_at = now() - interval '8 days' where space_id = $1 and source = 'YouTube'", [spaceId]);
+    const res = await request.get("/api/cron/maintenance", { headers: { Authorization: "Bearer e2e-cron-secret" } });
+    expect(res.status()).toBe(200);
+    expect(
+      await sql(
+        "select text, checked_at > now() - interval '1 hour' as checked from testimonials where space_id = $1 and source = 'YouTube'",
+        [spaceId],
+      ),
+    ).toEqual([{ text: "Watch our 60 second tour.", checked: true }]);
+    await sql("delete from testimonials where space_id = $1 and source = 'YouTube'", [spaceId]);
+  });
+
+  test("Google reviews from Takeout and Google Play reviews from Play Console", async () => {
     await openImport();
     await page.getByRole("button", { name: "Google", exact: true }).click();
-    await page.getByLabel("Maps link or business name").fill("Northwind Cafe Berlin");
-    await page.getByRole("button", { name: "Find" }).click();
-    await expect(page.getByRole("heading", { name: "Northwind Cafe" })).toBeVisible();
-    await expect(page.getByText("Google shares 5 reviews at most")).toBeVisible();
+    await expect(page.getByText("Add Google reviews yourself.")).toBeVisible();
+    expect(await axe()).toEqual([]);
+    await page.getByRole("button", { name: "Export file" }).click();
+    await expect(page.getByRole("dialog", { name: "Google export" })).toBeVisible();
+    await expect(page.getByText("Each location's folder has a reviews.json.")).toBeVisible();
+    await page
+      .locator('input[type="file"][aria-label="Choose a JSON file"]')
+      .setInputFiles({ name: "reviews.json", mimeType: "application/json", buffer: Buffer.from(TAKEOUT) });
+    await expect(page.getByText("Google export · 3 rows")).toBeVisible();
+    expect(await axe()).toEqual([]);
+    await page.getByRole("button", { name: "Import 3" }).click();
+    // The rating-only review has no words to show.
+    await expect(page.getByText("Imported 2 · skipped 1")).toBeVisible();
+    await expect(row("Best flat white in Kreuzberg.").getByRole("img", { name: "Google" })).toBeVisible();
+    await expect(row("Gemütlich und ruhig.")).toBeVisible();
+
+    await pasteLink("https://play.google.com/store/apps/details?id=com.northwind.notes");
+    await page.getByRole("button", { name: "Export file" }).click();
+    await expect(page.getByText("Download reports › Reviews")).toBeVisible();
+    await page
+      .locator('input[type="file"][aria-label="Choose a CSV file"]')
+      .setInputFiles({ name: "reviews_com.northwind.notes_202610.csv", mimeType: "text/csv", buffer: utf16(PLAY_CSV) });
+    await expect(page.getByText("Google Play export · 2 rows")).toBeVisible();
     await page.getByRole("button", { name: "Import 2" }).click();
-    await expect(row("Best flat white in Kreuzberg.")).toBeVisible();
-    await loaded(row("Best flat white in Kreuzberg.").locator('img[src*="/api/files/"]'));
+    await expect(page.getByText("Imported 1 · skipped 1")).toBeVisible();
+    await expect(row("Syncs before I put the phone down.").getByText("Google Play user")).toBeVisible();
   });
 
-  test("a site that blocks servers offers paste instead", async () => {
+  test("a link to a site Lovewall doesn't read shows the ways to add it by hand", async () => {
     await pasteLink("https://www.g2.com/products/northwind/reviews");
-    await expect(page.getByText("G2 blocks our server")).toBeVisible();
-    await page.getByRole("button", { name: "Paste" }).click();
-    const sheet = page.getByRole("dialog", { name: "Add from G2" });
-    await expect(sheet).toBeVisible();
-    await expect(sheet.getByLabel("Link")).toHaveValue("https://www.g2.com/products/northwind/reviews");
-    await sheet.getByLabel("Name", { exact: true }).fill("Rosa Diaz");
-    await sheet.getByLabel("Testimonial", { exact: true }).fill("Pasted from G2 by hand.");
-    await sheet.getByRole("button", { name: "Add", exact: true }).click();
+    const sheet = page.getByRole("dialog", { name: "G2" });
+    await expect(sheet.getByText("Add G2 reviews yourself.")).toBeVisible();
+    // No export file G2 documents, so no preset.
+    await expect(sheet.getByRole("button", { name: "Export file" })).toHaveCount(0);
+    await expect(sheet.getByRole("link", { name: "Browser extension" })).toHaveAttribute("href", /\/extension$/);
+    expect(await axe()).toEqual([]);
+    await sheet.getByRole("button", { name: "Paste" }).click();
+    const add = page.getByRole("dialog", { name: "Add from G2" });
+    await expect(add).toBeVisible();
+    await expect(add.getByLabel("Link")).toHaveValue("https://www.g2.com/products/northwind/reviews");
+    await add.getByLabel("Name", { exact: true }).fill("Rosa Diaz");
+    await add.getByLabel("Testimonial", { exact: true }).fill("Pasted from G2 by hand.");
+    await add.getByRole("button", { name: "Add", exact: true }).click();
     await expect(row("Pasted from G2 by hand.")).toBeVisible();
     await expect(row("Pasted from G2 by hand.").getByRole("link", { name: "G2" })).toBeVisible();
+
+    // Reddit too: a screenshot keeps the source.
+    await pasteLink("https://www.reddit.com/r/productivity/comments/abc123/anyone_using_northwind/c0ment1/");
+    await expect(page.getByText("Add Reddit posts yourself.")).toBeVisible();
+    await page.getByRole("button", { name: "Screenshots" }).click();
+    await page.locator('input[type="file"][aria-label="Choose screenshots"]').setInputFiles(path.join(__dirname, "fixtures", "photo.png"));
+    await expect(page.getByRole("combobox", { name: "Source" })).toHaveText(/Reddit/);
+    await page.getByLabel("Name for screenshot 1").fill("Kim Novak");
+    await page.getByRole("button", { name: "Import 1" }).click();
+    await expect(page.locator("[data-id]").filter({ hasText: "Kim Novak" }).getByRole("img", { name: "Reddit" })).toBeVisible();
   });
 
   test("screenshots become image testimonials", async () => {
@@ -246,7 +381,7 @@ test.describe.serial("import flow", () => {
     await expect(page.getByText("Imported 3 · 3 files copied · 1 failed")).toBeVisible({ timeout: 30_000 });
     const hana = row("the calmest notes app");
     await loaded(hana.locator('img[src*="/api/files/"]'));
-    await expect(hana.getByRole("link", { name: "X" })).toHaveAttribute("href", /x\.com\/hana_s/);
+    await expect(hana.getByRole("link", { name: "X" })).toHaveAttribute("href", /x\.com\/hana_example/);
     await expect(page.getByRole("button", { name: "Play video from Diego Torres" })).toBeVisible();
     await loaded(page.getByRole("img", { name: "Screenshot from Aisha Bello" }));
     // The same export again: nothing new.
@@ -303,9 +438,9 @@ test.describe.serial("import flow", () => {
     await page.getByLabel("Keywords").fill("Northwind");
     await page.getByLabel("Keywords").press("Enter");
     const hn = page.locator("[data-mention]").filter({ hasText: "the first notes app my whole team actually uses" });
-    const rd = page.locator("[data-mention]").filter({ hasText: "the only notes app that stuck" });
+    const show = page.locator("[data-mention]").filter({ hasText: "the only notes app that stuck" });
     await expect(hn).toBeVisible({ timeout: 20_000 });
-    await expect(rd).toBeVisible();
+    await expect(show).toBeVisible();
     await expect(page.locator("[data-mention]").filter({ hasText: "Unrelated" })).toHaveCount(0);
     expect(await axe()).toEqual([]);
 
@@ -317,10 +452,10 @@ test.describe.serial("import flow", () => {
     await hn.getByRole("button", { name: "Save as testimonial" }).click();
     await expect(page.getByText("Saved as testimonial")).toBeVisible();
     await expect(hn).toHaveCount(0);
-    await rd.getByRole("button", { name: "Dismiss" }).click();
+    await show.getByRole("button", { name: "Dismiss" }).click();
     await expect(page.getByText("No new mentions")).toBeVisible();
     await page.getByRole("radio", { name: /^Dismissed/ }).click();
-    await expect(rd).toBeVisible();
+    await expect(show).toBeVisible();
 
     await page.goto(`/app/${spaceId}`);
     await page.getByRole("radio", { name: /^All/ }).click();

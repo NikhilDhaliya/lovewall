@@ -46,8 +46,9 @@ export function pageBody(input: PageInput): string {
         .join("")}</div><p class="lw-sr lw-filter-status" aria-live="polite"></p>`
     : "";
   const wall = widgetBody({ ...input, type: "wall", config: { ...c, branding: false }, mode: "page" });
-  // "Report" is always there: anyone can ask for a testimonial to come down (privacy policy).
-  const base = input.mode === "page" ? "" : esc(input.appUrl);
+  // "Report" is always there: anyone can ask for a testimonial to come down (privacy policy). Both links point at the
+  // app itself: on a custom domain "/" is the space's form and /r/ isn't served.
+  const base = esc(input.appUrl);
   const footer = `<footer class="lw-pf">${c.branding ? `<a href="${base}/?ref=wall">${MARK}Made with Lovewall</a>` : ""}<a href="${base}/r/${esc(input.widgetId)}" rel="nofollow">Report</a></footer>`;
   return `<header class="lw-ph"><div class="lw-ph-in">${
     space.logo ? `<img class="lw-ph-logo" src="${esc(space.logo)}" alt="">` : ""

@@ -17,7 +17,7 @@ export function Doc({ title, lead, children }: { title: string; lead?: React.Rea
       <header className="pb-6">
         <h1 className="font-display text-[28px] leading-[1.15] font-semibold tracking-[-0.02em] sm:text-[32px]">{title}</h1>
         <p className="mt-2 text-[14px] text-muted">
-          {LEGAL.effectiveDate ? `Effective ${formatDate(LEGAL.effectiveDate)}` : "Draft, not yet in effect"} · Operator: {LEGAL.operator}
+          Effective {formatDate(LEGAL.effectiveDate)} · Operator: {LEGAL.operator}
         </p>
         {lead && <p className="mt-4 text-[16px] leading-relaxed text-muted">{lead}</p>}
       </header>
@@ -91,11 +91,7 @@ export function A({ href, children }: { href: string; children: React.ReactNode 
   );
 }
 
+// An operator address, or plain words when the operator has not set one (src/lib/legal/config.ts).
 export function Mail({ address }: { address: string }) {
-  return <A href={`mailto:${address}`}>{address}</A>;
-}
-
-// Something the operator decides: visible on the page so nobody mistakes a draft value for a promise.
-export function OwnerNote({ children }: { children: React.ReactNode }) {
-  return <p className="rounded-[8px] bg-surface-2 px-3 py-2 text-[13px] text-muted">{children}</p>;
+  return address ? <A href={`mailto:${address}`}>{address}</A> : <>the operator of this instance</>;
 }

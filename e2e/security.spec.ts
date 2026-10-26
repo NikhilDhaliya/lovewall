@@ -7,9 +7,12 @@ import { isHttpUrl } from "../src/lib/forms";
 import { describeError, redact } from "../src/lib/log";
 import { isPrivateAddress, isPrivateLiteral } from "../src/lib/net";
 import { safeNext } from "../src/lib/redirect";
-import { startupProblems } from "../src/lib/startup";
+import { startupProblems, startupWarnings } from "../src/lib/startup";
 import { checkChatTarget } from "../src/lib/webhook-format";
 import { customCss } from "../src/lib/widget/render";
+import { pgConnection } from "../scripts/db-ssl.mjs";
+import { ACCOUNT_LINKING, signUpAllowed } from "../src/lib/auth-privacy";
+import { clientIpFrom, sharedBucketWarning } from "../src/lib/client-ip";
 import { createSpace, newContext, signIn, uniqueEmail } from "./helpers";
 
 // Security: headers, cookies, CSRF, open redirects, and one user (or one API key) never reaching another space.
@@ -50,6 +53,16 @@ async function makeKey(spaceId: string, createdBy: string, scope: "read" | "writ
     createdBy,
   ]);
   return key;
+}
+
+// A webhook as if this member had set it up (the UI flow is covered by the integrations suite).
+async function makeHook(spaceId: string, createdBy: string) {
+  const hookId = id();
+  await sql(
+    "insert into webhooks (id, space_id, kind, url, events, created_by) values ($1, $2, 'webhook', 'https://hooks.example.com/x', '{testimonial.created}', $3)",
+    [hookId, spaceId, createdBy],
+  );
+  return hookId;
 }
 
 async function addTestimonial(spaceId: string, text: string) {
@@ -151,6 +164,69 @@ test.describe("pure parts", () => {
     expect(line).not.toContain("ada@example.com");
   });
 
+  test("database TLS follows sslmode as in libpq, for every host", () => {
+    const pem = "-----BEGIN CERTIFICATE-----\\nMIIB\\n-----END CERTIFICATE-----";
+    // No sslmode: plain, also for a managed host (no host-based exceptions).
+    expect(pgConnection("postgresql://u:p@db.abc.supabase.co:6543/postgres", {})).toEqual({
+      connectionString: "postgresql://u:p@db.abc.supabase.co:6543/postgres",
+      ssl: false,
+    });
+    // require: encrypted, certificate not checked; the TLS params never reach pg (which would read them its own way).
+    const require = pgConnection("postgresql://u:p@h:5432/db?sslmode=require&application_name=lw", {});
+    expect(require).toEqual({ connectionString: "postgresql://u:p@h:5432/db?application_name=lw", ssl: { rejectUnauthorized: false } });
+    // verify-full: certificate and host checked, with the CA from DATABASE_CA_CERT (PEM text, "\n" escapes allowed).
+    const full = pgConnection("postgresql://u:p@h/db?sslmode=verify-full", { DATABASE_CA_CERT: pem });
+    expect(full.ssl).toEqual({ rejectUnauthorized: true, ca: "-----BEGIN CERTIFICATE-----\nMIIB\n-----END CERTIFICATE-----" });
+    // verify-ca: the chain is checked, the host name isn't.
+    const ca = pgConnection("postgresql://u:p@h/db?sslmode=verify-ca", {});
+    expect(ca.ssl && ca.ssl.rejectUnauthorized).toBe(true);
+    expect(ca.ssl && ca.ssl.checkServerIdentity?.("h", {} as never)).toBeUndefined();
+    // PGSSLMODE applies when the URL has none; modes node-postgres can't honour are refused, not reinterpreted.
+    expect(pgConnection("postgresql://u:p@h/db", { PGSSLMODE: "verify-full" }).ssl).toEqual({ rejectUnauthorized: true });
+    expect(() => pgConnection("postgresql://u:p@h/db?sslmode=prefer", {})).toThrow(/sslmode=prefer/);
+  });
+
+  test("client IP: one trusted source, never a header a client can add", () => {
+    const h = (o: Record<string, string>) => new Headers(o);
+    // Behind a proxy: only the last X-Forwarded-For entry (the one the proxy added); a client's X-Real-IP means nothing.
+    const proxy = { TRUST_PROXY: "1" };
+    expect(clientIpFrom(h({ "x-forwarded-for": "6.6.6.6, 93.184.215.14", "x-real-ip": "6.6.6.6" }), proxy)).toBe("93.184.215.14");
+    expect(clientIpFrom(h({ "x-real-ip": "6.6.6.6" }), proxy)).toBe("unknown");
+    // TRUST_PROXY_HEADER: that one header, nothing else.
+    const cf = { TRUST_PROXY: "1", TRUST_PROXY_HEADER: "CF-Connecting-IP" };
+    expect(clientIpFrom(h({ "cf-connecting-ip": "93.184.215.15", "x-forwarded-for": "6.6.6.6" }), cf)).toBe("93.184.215.15");
+    expect(clientIpFrom(h({ "x-forwarded-for": "6.6.6.6", "x-real-ip": "6.6.6.6" }), cf)).toBe("unknown");
+    // No proxy: the connection's address (scripts/client-ip.cjs), whatever forwarding headers say.
+    const socket = { LOVEWALL_SOCKET_IP: "1" };
+    const forged = { "x-forwarded-for": "6.6.6.6", "x-real-ip": "6.6.6.6", "x-lovewall-client-ip": "6.6.6.6" };
+    expect(clientIpFrom(h({ ...forged, "x-lovewall-ip": "::ffff:93.184.215.16" }), socket)).toBe("93.184.215.16");
+    expect(clientIpFrom(h(forged), {})).toBe("unknown");
+    // Only private peers and no TRUST_PROXY: a proxy is probably in front and everyone shares its bucket (production).
+    const prod = { ...socket, NODE_ENV: "production" };
+    expect(sharedBucketWarning(h({ "x-lovewall-ip": "172.18.0.5" }), prod)).toMatch(/TRUST_PROXY=1/);
+    expect(sharedBucketWarning(h({ "x-lovewall-ip": "93.184.215.16" }), prod)).toBeNull();
+    expect(sharedBucketWarning(h({ "x-lovewall-ip": "172.18.0.5" }), { ...prod, TRUST_PROXY: "1" })).toBeNull();
+    expect(sharedBucketWarning(h({ "x-lovewall-ip": "127.0.0.1" }), socket)).toBeNull();
+    expect(sharedBucketWarning(h({}), { NODE_ENV: "production" })).toMatch(/shares one rate-limit bucket/);
+    // A header name that can't be one, or one without TRUST_PROXY, is reported at startup.
+    expect(startupWarnings({ NODE_ENV: "production", TRUST_PROXY_HEADER: "x-real-ip" })).toEqual([
+      "TRUST_PROXY_HEADER is set but TRUST_PROXY isn't, so it is ignored.",
+    ]);
+    expect(startupWarnings({ NODE_ENV: "production", TRUST_PROXY: "1", TRUST_PROXY_HEADER: "x real ip" })).toHaveLength(1);
+    expect(startupWarnings({ NODE_ENV: "production", TRUST_PROXY: "1", TRUST_PROXY_HEADER: "CF-Connecting-IP" })).toEqual([]);
+  });
+
+  test("GitHub and Google sign-ins need an address the provider verified", () => {
+    // No provider is trusted blindly for linking: Better Auth then links only when the provider says the email is
+    // verified, and only to an account whose own address was proven.
+    expect(ACCOUNT_LINKING.trustedProviders).toEqual([]);
+    expect(ACCOUNT_LINKING.requireLocalEmailVerified).toBe(true);
+    // New accounts too: an unverified GitHub email can't create an account that waits for its real owner.
+    expect(signUpAllowed({ emailVerified: false })).toBe(false);
+    expect(signUpAllowed({})).toBe(false);
+    expect(signUpAllowed({ emailVerified: true })).toBe(true);
+  });
+
   test("the flood gate counts per IP per minute", () => {
     const gate = new FloodGate(3);
     expect([1, 2, 3, 4].map(() => gate.allow("1.2.3.4", 1000))).toEqual([true, true, true, false]);
@@ -187,6 +263,21 @@ test("headers: CSP everywhere, only embeds frameable, no sniffing", async ({ req
   expect(embed.headers()["x-frame-options"]).toBeUndefined();
   // Unknown widgets get no share image (each would be a full render).
   expect((await request.get("/w/AAAAAAAAAAAA/opengraph-image")).status()).toBe(404);
+});
+
+test("sign-in limits count the address the app trusts, not headers a client adds", async ({ request }) => {
+  // The servers trust X-Real-IP (TRUST_PROXY_HEADER). A client changing X-Forwarded-For or the header Lovewall fills in
+  // for Better Auth must not get a fresh bucket: the code-sending limit is 3 a minute per address.
+  const ip = `10.55.${Math.floor(Math.random() * 250)}.${Math.floor(Math.random() * 250)}`;
+  const statuses: number[] = [];
+  for (let i = 1; i <= 4; i++) {
+    const res = await request.post("/api/auth/email-otp/send-verification-otp", {
+      headers: { "x-real-ip": ip, "x-forwarded-for": `93.184.215.${i}`, "x-lovewall-client-ip": `93.184.215.${i}`, origin: APP },
+      data: { email: uniqueEmail("ip"), type: "sign-in" },
+    });
+    statuses.push(res.status());
+  }
+  expect(statuses).toEqual([200, 200, 200, 429]);
 });
 
 test("error answers carry no internals", async ({ request }) => {
@@ -347,8 +438,81 @@ test.describe("two users, two spaces", () => {
     expect((await bob.request.get(`/api/spaces/${alpha}/export?format=csv`)).status()).toBe(403);
   });
 
-  test("a removed member loses the space and their API keys at once", async ({ request }) => {
+  test("public uploads need the form's stamp and fit byte budgets; unclaimed ones go after 3 hours", async ({ request }) => {
+    const [{ slug }] = await sql<{ slug: string }>("select slug from spaces where id = $1", [alpha]);
+    const html = await (await request.get(`/${slug}`)).text();
+    const token = html.match(/\\"token\\":\\"(\d+\.[A-Za-z0-9_-]+)\\"/)?.[1] ?? html.match(/"token":"(\d+\.[A-Za-z0-9_-]+)"/)?.[1];
+    expect(token).toBeTruthy();
+    const net = `10.71.${Math.floor(Math.random() * 250)}`;
+    const video = (visitor: number, stamp = token) =>
+      request.post(`/api/collect/${alpha}/upload`, {
+        headers: { "x-real-ip": `${net}.${visitor}` },
+        data: { kind: "video", type: "video/mp4", size: 60 * 1024 * 1024, token: stamp },
+      });
+    const unclaimed = async () =>
+      (await sql<{ n: number }>("select count(*)::int as n from uploads where space_id = $1 and claimed_at is null", [alpha]))[0].n;
+
+    // No stamp, or a forged one: refused before anything is recorded.
+    expect((await video(1, "")).status()).toBe(400);
+    expect((await video(1, `${Date.now() - 60_000}.forged`)).status()).toBe(400);
+    expect(await unclaimed()).toBe(0);
+
+    // One visitor: 300 MB left unclaimed in an hour (five 60 MB videos), then 429.
+    const one: number[] = [];
+    for (let i = 0; i < 6; i++) one.push((await video(1)).status());
+    expect(one).toEqual([200, 200, 200, 200, 200, 429]);
+    // One space: 2 GB an hour across visitors (34 such videos), then 429 for everyone.
+    const many: number[] = [];
+    for (let visitor = 2; visitor <= 8; visitor++) for (let i = 0; i < 5; i++) many.push((await video(visitor)).status());
+    expect(many.filter((s) => s === 200)).toHaveLength(29);
+    expect(many.slice(29)).toEqual([429, 429, 429, 429, 429, 429]);
+    expect(await unclaimed()).toBe(34);
+
+    // Nothing claimed them: three hours later the cron deletes them, and the budgets are free again.
+    await sql("update uploads set created_at = now() - interval '3 hours 1 minute' where space_id = $1 and claimed_at is null", [alpha]);
+    const cron = await request.get("/api/cron/maintenance", { headers: { authorization: "Bearer e2e-cron-secret" } });
+    expect(cron.status()).toBe(200);
+    expect(await unclaimed()).toBe(0);
+    expect((await video(1)).status()).toBe(200);
+  });
+
+  test("analytics count only beacons from the widget's own embed or wall page", async ({ request }) => {
+    const [{ id: widget }] = await sql<{ id: string }>("select id from widgets where space_id = $1 limit 1", [alpha]);
+    const chrome = "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/141.0.0.0 Safari/537.36";
+    const beacon = (headers: Record<string, string>, h = "example.com") =>
+      request.post("/api/e", {
+        headers: {
+          "user-agent": chrome,
+          "x-real-ip": `10.72.${Math.floor(Math.random() * 250)}.${Math.floor(Math.random() * 250)}`,
+          ...headers,
+        },
+        data: JSON.stringify({ w: widget, t: "click", h }),
+      });
+    const stats = () =>
+      sql<{ host: string; clicks: number }>("select host, clicks from widget_stats where widget_id = $1 order by host", [widget]);
+
+    // curl with a browser's user agent: no fetch metadata, so not a browser; quietly not counted.
+    expect((await beacon({})).status()).toBe(204);
+    expect((await beacon({ referer: `${APP}/embed/${widget}` })).status()).toBe(204);
+    // Another site: refused. This site, but not this widget's page: not counted.
+    expect((await beacon({ "sec-fetch-site": "cross-site", referer: `${APP}/embed/${widget}` })).status()).toBe(403);
+    expect((await beacon({ "sec-fetch-site": "same-origin", referer: `${APP}/` })).status()).toBe(204);
+    expect((await beacon({ "sec-fetch-site": "same-origin", referer: `${APP}/embed/AAAAAAAAAAAA` })).status()).toBe(204);
+    expect(await stats()).toEqual([]);
+
+    // The embed: counted, with the site around it as the script reports it.
+    expect((await beacon({ "sec-fetch-site": "same-origin", referer: `${APP}/embed/${widget}` })).status()).toBe(204);
+    // The wall page: counted under the host it was served on, whatever the body claims.
+    expect((await beacon({ "sec-fetch-site": "same-origin", referer: `${APP}/w/${widget}` }, "evil.example")).status()).toBe(204);
+    expect(await stats()).toEqual([
+      { host: "example.com", clicks: 1 },
+      { host: "localhost", clicks: 1 },
+    ]);
+  });
+
+  test("a removed member loses the space, their API keys and their webhooks at once", async ({ request }) => {
     const bobsKey = await makeKey(alpha, bobId, "read");
+    const bobsHook = await makeHook(alpha, bobId);
     expect((await request.get("/api/v1/space", { headers: { Authorization: `Bearer ${bobsKey}` } })).status()).toBe(200);
     expect((await b.goto(`/app/${alpha}`))?.status()).toBe(200);
 
@@ -364,7 +528,31 @@ test.describe("two users, two spaces", () => {
 
     expect((await b.goto(`/app/${alpha}`))?.status()).toBe(404);
     expect((await request.get("/api/v1/space", { headers: { Authorization: `Bearer ${bobsKey}` } })).status()).toBe(401);
+    expect(await sql("select 1 from webhooks where id = $1", [bobsHook])).toHaveLength(0);
     // Alice's own key is untouched.
+    expect((await request.get("/api/v1/space", { headers: { Authorization: `Bearer ${keyAlpha}` } })).status()).toBe(200);
+  });
+
+  test("deleting an account ends the API keys and webhooks it made in other spaces", async ({ request }) => {
+    await sql("insert into space_members (space_id, user_id, role) values ($1, $2, 'editor')", [alpha, bobId]);
+    const bobsKey = await makeKey(alpha, bobId, "write");
+    const bobsHook = await makeHook(alpha, bobId);
+    const alicesHook = await makeHook(alpha, aliceId);
+    expect((await request.get("/api/v1/space", { headers: { Authorization: `Bearer ${bobsKey}` } })).status()).toBe(200);
+
+    await b.goto("/app/settings");
+    await b.getByRole("button", { name: "Delete account" }).click();
+    await b.getByRole("alertdialog").getByRole("button", { name: "Delete account" }).click();
+    await b.waitForURL((u) => u.pathname === "/", { waitUntil: "commit" });
+    expect(await sql("select 1 from auth_users where id = $1", [bobId])).toHaveLength(0);
+
+    expect((await request.get("/api/v1/space", { headers: { Authorization: `Bearer ${bobsKey}` } })).status()).toBe(401);
+    expect(
+      await sql("select 1 from api_keys where created_by = $1 or (space_id = $2 and created_by is null)", [bobId, alpha]),
+    ).toHaveLength(0);
+    expect(await sql("select 1 from webhooks where id = $1", [bobsHook])).toHaveLength(0);
+    // The space and what its owner made stay.
+    expect(await sql("select 1 from webhooks where id = $1", [alicesHook])).toHaveLength(1);
     expect((await request.get("/api/v1/space", { headers: { Authorization: `Bearer ${keyAlpha}` } })).status()).toBe(200);
   });
 });

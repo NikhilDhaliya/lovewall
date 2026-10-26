@@ -50,7 +50,6 @@ export const SAMPLES: PublicTestimonial[] = [
     text: "The calendar sync just works. I stopped double-booking calls the day I switched.",
     date: "2026-10-15T10:00:00.000Z",
     source: "X",
-    handle: "priyamakes",
   },
   {
     ...base,

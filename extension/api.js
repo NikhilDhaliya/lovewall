@@ -1,12 +1,12 @@
 /*! Save to Lovewall · api.js
- * Settings and calls to the Lovewall REST API (/api/v1). The extension only ever talks to the app URL the owner set. */
+ * Settings and calls to the Lovewall REST API (/api/v1). The extension only ever talks to the Lovewall address entered
+ * in its settings; there is no default. */
 (function (root) {
   "use strict";
 
-  var DEFAULT_URL = "https://lovewall.tech";
   var TIMEOUT = 15000;
 
-  // The origin of a Lovewall address ("lovewall.tech", "https://x.com/app" → "https://x.com"); "" when it isn't one.
+  // The origin of a Lovewall address ("wall.example.com", "https://x.com/app" → "https://x.com"); "" when it isn't one.
   // Plain http only for a Lovewall on this computer.
   function normalizeAppUrl(input) {
     var s = String(input || "").trim();
@@ -38,9 +38,10 @@
     }
   }
 
+  // autoApprove is off unless turned on in the settings: saves wait in the inbox as new.
   function getSettings() {
-    return chrome.storage.local.get(["appUrl", "apiKey", "spaceName"]).then(function (s) {
-      return { appUrl: s.appUrl || DEFAULT_URL, apiKey: s.apiKey || "", spaceName: s.spaceName || "" };
+    return chrome.storage.local.get(["appUrl", "apiKey", "spaceName", "autoApprove"]).then(function (s) {
+      return { appUrl: s.appUrl || "", apiKey: s.apiKey || "", spaceName: s.spaceName || "", autoApprove: s.autoApprove === true };
     });
   }
 
@@ -116,7 +117,6 @@
   }
 
   var api = {
-    DEFAULT_URL: DEFAULT_URL,
     normalizeAppUrl: normalizeAppUrl,
     originPattern: originPattern,
     hostOf: hostOf,

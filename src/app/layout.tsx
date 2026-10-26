@@ -16,8 +16,7 @@ const appUrl = (process.env.APP_URL || "http://localhost:3000").replace(/\/$/, "
 export const metadata: Metadata = {
   metadataBase: new URL(appUrl),
   title: { default: "Lovewall: open-source testimonials", template: "%s · Lovewall" },
-  description:
-    "Collect testimonials with one link and show a wall of love on your site. Open source: free to self-host, or $9/mo hosted with a 14-day trial.",
+  description: "Collect testimonials with one link and show a wall of love on your site. Open source and free to self-host.",
   applicationName: "Lovewall",
   authors: [{ name: "Nikhil Dhaliya" }],
   openGraph: { type: "website", siteName: "Lovewall", url: appUrl },

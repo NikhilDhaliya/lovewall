@@ -133,6 +133,25 @@ test.describe("hosted billing", () => {
     expect(await axe(page)).toEqual([]);
   });
 
+  test("a trial account invites at most 50 people a day, across its spaces", async ({ browser }) => {
+    const email = uniqueEmail("trial-invites");
+    const { ctx, page: p } = await signedIn(browser, email);
+    const first = await createSpace(p, "Trial Invites");
+    await p.goto(`/app/${first}/collect/invites`);
+    await expect(p.getByText("0 of 50 sent today")).toBeVisible();
+    const people = Array.from({ length: 51 }, (_, i) => `Person ${i}, ${uniqueEmail(`ti${i}`)}`).join("\n");
+    await p.getByLabel("People").fill(people);
+    await p.getByRole("button", { name: "Send to 51" }).click();
+    await expect(p.getByText("Sent 50 invites")).toBeVisible({ timeout: 30_000 });
+    await expect(p.getByText("Skipped: 1 over today’s limit")).toBeVisible();
+    await expect(p.getByText("50 of 50 sent today")).toBeVisible();
+    // The cap is the owner's, not the space's.
+    const second = await createSpace(p, "Trial Invites Two");
+    await p.goto(`/app/${second}/collect/invites`);
+    await expect(p.getByText("50 of 50 sent today")).toBeVisible();
+    await ctx.close();
+  });
+
   test("subscribe through Polar's checkout", async () => {
     const billing = page.locator("#billing");
     await billing.getByRole("radio", { name: "Yearly · $90" }).click();
@@ -304,7 +323,7 @@ test.describe("hosted billing", () => {
     await ctx.close();
   });
 
-  test("deleting the account cancels the plan", async ({ request }) => {
+  test("deleting the account cancels the plan, and signing up again starts no new trial", async ({ browser, request }) => {
     // The first owner subscribes again (the earlier plan was revoked), then deletes the account.
     await page.goto("/app/settings");
     await page.locator("#billing").getByRole("button", { name: "Subscribe" }).click();
@@ -321,6 +340,19 @@ test.describe("hosted billing", () => {
     const state = (await (await request.get(`${SITE}/polar/_state`)).json()) as { revoked: string[] };
     expect(state.revoked).toContain(live.id);
     expect(await sql("select 1 from auth_users where id = $1", [uid])).toHaveLength(0);
+
+    // Only a hash of the address and its first sign-up date stay.
+    const hash = createHash("sha256").update(ownerEmail.toLowerCase()).digest("hex");
+    const kept = await sql("select * from signup_history where email_hash = $1", [hash]);
+    expect(kept).toHaveLength(1);
+    expect(JSON.stringify(kept)).not.toContain(ownerEmail.split("@")[0]);
+    // As if that first sign-up was 20 days ago: the new account's trial is already over.
+    await sql("update signup_history set first_signed_up_at = now() - interval '20 days' where email_hash = $1", [hash]);
+    const again = await signedIn(browser, ownerEmail);
+    await again.page.goto("/app/settings");
+    await expect(again.page.locator("#billing").getByText("Trial ended")).toBeVisible();
+    await expect(again.page.getByRole("link", { name: /days left/ })).toHaveCount(0);
+    await again.ctx.close();
   });
 });
 

@@ -1,4 +1,5 @@
 // Settings the server refuses to start with in production. Plain module: the unit tests import it.
+import { proxyHeader } from "@/lib/client-ip";
 
 type Env = Record<string, string | undefined>;
 
@@ -23,16 +24,14 @@ export function startupProblems(env: Env): string[] {
 // user-given URLs or API traffic to fixed test endpoints without the SSRF checks, or let webhooks reach private hosts.
 export function startupWarnings(env: Env): string[] {
   if (env.NODE_ENV !== "production") return [];
-  const testing = [
-    "IMPORT_TEST_ENDPOINT",
-    "X_OEMBED_ENDPOINT",
-    "X_SYNDICATION_ENDPOINT",
-    "POLAR_API_URL",
-    "ANTHROPIC_BASE_URL",
-    "DEEPGRAM_API_URL",
-  ];
+  const testing = ["IMPORT_TEST_ENDPOINT", "X_OEMBED_ENDPOINT", "POLAR_API_URL", "ANTHROPIC_BASE_URL", "DEEPGRAM_API_URL"];
   const warnings = testing.filter((name) => env[name]).map((name) => `${name} is set: it is for tests only. Unset it in production.`);
   if (env.WEBHOOKS_ALLOW_PRIVATE === "1" || env.WEBHOOKS_ALLOW_PRIVATE === "true")
     warnings.push("WEBHOOKS_ALLOW_PRIVATE is on: every space can send webhooks to your private network. Only for a single-tenant install.");
+  const header = env.TRUST_PROXY_HEADER?.trim();
+  if (header && !(env.TRUST_PROXY === "1" || env.TRUST_PROXY === "true"))
+    warnings.push("TRUST_PROXY_HEADER is set but TRUST_PROXY isn't, so it is ignored.");
+  else if (header && proxyHeader(env) !== header.toLowerCase())
+    warnings.push("TRUST_PROXY_HEADER isn't a header name; the last X-Forwarded-For entry is used instead.");
   return warnings;
 }

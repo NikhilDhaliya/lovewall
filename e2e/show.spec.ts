@@ -397,17 +397,24 @@ test("views (once visible) and clicks are counted, without cookies", async ({ br
   await page.goto(`/app/${spaceId}/widgets`);
   await expect(page.locator(`a[href$="/widgets/${widgetId}"]`)).toContainText("1 view");
 
-  // The beacon refuses other sites, junk, and floods; bots are ignored.
+  // The beacon refuses other sites, junk, and floods; bots are ignored. (What counts as the widget's own page is in
+  // the security suite.)
   const body = (t: string, w = widgetId) => JSON.stringify({ w, t, h: "example.com" });
-  const same = { "sec-fetch-site": "same-origin", "user-agent": UA };
+  const embedOf = (w: string) => `http://localhost:${Number(process.env.E2E_PORT) || 3111}/embed/${w}`;
+  const same = { "sec-fetch-site": "same-origin", referer: embedOf(widgetId), "user-agent": UA };
   expect(
     (await request.post("/api/e", { headers: { "sec-fetch-site": "cross-site", "user-agent": UA }, data: body("view") })).status(),
   ).toBe(403);
   expect((await request.post("/api/e", { headers: same, data: "nope" })).status()).toBe(400);
   expect((await request.post("/api/e", { headers: same, data: body("hug") })).status()).toBe(400);
-  expect((await request.post("/api/e", { headers: { ...same, "x-real-ip": ip() }, data: body("click", "Nope1234Nope") })).status()).toBe(
-    404,
-  );
+  expect(
+    (
+      await request.post("/api/e", {
+        headers: { ...same, referer: embedOf("Nope1234Nope"), "x-real-ip": ip() },
+        data: body("click", "Nope1234Nope"),
+      })
+    ).status(),
+  ).toBe(404);
   expect((await request.post("/api/e", { headers: { ...same, "user-agent": "Googlebot/2.1" }, data: body("view") })).status()).toBe(204);
   const flood = { ...same, "x-real-ip": ip() };
   const statuses: number[] = [];
@@ -537,16 +544,27 @@ test("custom CSS sanitiser: nothing can close the style element", () => {
 
 test("JSON-LD is safe inside a script element", () => {
   const evil = { ...SAMPLES[0], name: "</script><script>alert(1)</script>", text: "a < b && c > d \u2028 </script>", rating: 5 };
-  const ld = jsonLd({
-    space: { name: "<b>x</b>", slug: "x", logo: null, website: null },
-    items: [evil],
-    summary: { average: 5, count: 1, rated: 1 },
-  });
+  const ld = jsonLd({ space: { name: "<b>x</b>", slug: "x", logo: null, website: null }, items: [evil] });
   expect(ld).not.toMatch(/[<>&\u2028\u2029]/);
   expect(JSON.parse(ld).review[0].author.name).toBe("</script><script>alert(1)</script>");
-  expect(
-    jsonLd({ space: { name: "x", slug: "x", logo: null, website: null }, items: [], summary: { average: null, count: 3, rated: 0 } }),
-  ).toBe("");
+  expect(jsonLd({ space: { name: "x", slug: "x", logo: null, website: null }, items: [] })).toBe("");
+});
+
+test("JSON-LD marks up only testimonials collected through Lovewall", () => {
+  const space = { name: "x", slug: "x", logo: null, website: null };
+  const own = { ...SAMPLES[0], source: "Form", rating: 4 };
+  const imported = [
+    { ...SAMPLES[1], source: "LinkedIn", rating: 5 },
+    { ...SAMPLES[2], source: "X", rating: 5 },
+    { ...SAMPLES[3], source: "Google", rating: 5 },
+  ];
+  // Imported reviews alone: no markup at all.
+  expect(jsonLd({ space, items: imported })).toBe("");
+  // Mixed: the aggregate and the reviews come from the form-collected ones only.
+  const data = JSON.parse(jsonLd({ space, items: [...imported, own] }));
+  expect(data.aggregateRating).toMatchObject({ ratingValue: 4, reviewCount: 1 });
+  expect(data.review).toHaveLength(1);
+  expect(data.review[0].author.name).toBe(own.name);
 });
 
 test("every new layout escapes user content", () => {
@@ -574,7 +592,7 @@ test("every new layout escapes user content", () => {
       items: [evil],
       summary: { average: 5, count: 1, rated: 1 },
       space: { name: "<b>Space</b>", slug: "s", logo: null, website: null },
-      appUrl: "https://lovewall.tech",
+      appUrl: "https://testimonials.example.com",
       mode: "embed",
     });
     for (const bad of ["<script>alert", "<img src=x", "<svg onload", '" onerror="alert', "<b>", "<i>"])
@@ -586,7 +604,7 @@ test("every new layout escapes user content", () => {
     items: [{ ...evil, tags: ['x"><script>alert(1)</script>'] }],
     summary: { average: 5, count: 1 },
     space: { name: "S", slug: "s", logo: null, website: null },
-    appUrl: "https://lovewall.tech",
+    appUrl: "https://testimonials.example.com",
     mode: "page",
   });
   expect(page).not.toMatch(/<script>|<h1>x|<b>Go|javascript:/);

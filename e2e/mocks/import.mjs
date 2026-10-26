@@ -1,4 +1,4 @@
-// Mock third parties for imports, mentions and media copies. The app sends every such request to
+// Mock official feeds and APIs for imports, mentions and media copies. The app sends every such request to
 // <site>/import/<host>/<path> (IMPORT_TEST_ENDPOINT), so tests never reach a real service.
 import { readFileSync } from "node:fs";
 import path from "node:path";
@@ -12,7 +12,8 @@ const MP4 = Buffer.concat([Buffer.from("000000186674797069736f6d0000020069736f6d
 const DAY = 86400_000;
 const iso = (daysAgo) => new Date(Date.now() - daysAgo * DAY).toISOString();
 
-// Sync test: the app with id 222222222 gains reviews when a test moves it to stage 2.
+// Sync test: the app with id 222222222 gains reviews when a test moves it to stage 2. Recheck test: a YouTube video
+// can be "renamed" (a new title) or "gone" (404).
 const stage = new Map();
 
 function appEntries(app) {
@@ -76,69 +77,6 @@ function appXml(app, page) {
     .join("")}</feed>`;
 }
 
-const trustpilot = (reviews) =>
-  `<!doctype html><html><head><title>Northwind Reviews | Read Customer Service Reviews of northwind.example</title></head><body>
-<script id="__NEXT_DATA__" type="application/json">${JSON.stringify({
-    props: { pageProps: { businessUnit: { displayName: "Northwind" }, reviews } },
-  })}</script></body></html>`;
-
-const TRUSTPILOT_REVIEWS = [
-  {
-    id: "tp-0001",
-    title: "Answered in minutes",
-    text: "Northwind support answered in minutes &amp; fixed it.",
-    rating: 5,
-    dates: { publishedDate: iso(3) },
-    consumer: { displayName: "Mira Okafor", imageUrl: "https://user-images.trustpilot.com/mock/73x73.png" },
-  },
-  {
-    id: "tp-0002",
-    title: "Good value",
-    text: "Good value for a small team.",
-    rating: 4,
-    dates: { publishedDate: iso(6) },
-    consumer: { displayName: "Jon Ellis" },
-  },
-];
-
-const REDDIT_THREAD = [
-  {
-    kind: "Listing",
-    data: {
-      children: [
-        {
-          kind: "t3",
-          data: {
-            id: "abc123",
-            title: "Anyone using Northwind for notes?",
-            selftext: "",
-            author: "curious_cat",
-            permalink: "/r/productivity/comments/abc123/anyone_using_northwind/",
-            created_utc: Date.now() / 1000 - 4 * 86400,
-          },
-        },
-      ],
-    },
-  },
-  {
-    kind: "Listing",
-    data: {
-      children: [
-        {
-          kind: "t1",
-          data: {
-            id: "c0ment1",
-            body: "Switched to Northwind last year, never looked back.",
-            author: "quiet_river",
-            permalink: "/r/productivity/comments/abc123/anyone_using_northwind/c0ment1/",
-            created_utc: Date.now() / 1000 - 3 * 86400,
-          },
-        },
-      ],
-    },
-  },
-];
-
 const HN_ITEM = {
   id: 4242,
   type: "story",
@@ -159,29 +97,6 @@ const HN_ITEM = {
   ],
 };
 
-const GOOGLE_PLACE = {
-  id: "ChIJmockNorthwindCafe0001",
-  displayName: { text: "Northwind Cafe" },
-  formattedAddress: "1 Mock Street, Berlin",
-  reviews: [
-    {
-      name: "places/ChIJmockNorthwindCafe0001/reviews/r1",
-      rating: 5,
-      text: { text: "Best flat white in Kreuzberg." },
-      originalText: { text: "Best flat white in Kreuzberg." },
-      authorAttribution: { displayName: "Lena Vogel", photoUri: "https://lh3.googleusercontent.com/a/mock-lena=s128" },
-      publishTime: iso(4),
-    },
-    {
-      name: "places/ChIJmockNorthwindCafe0001/reviews/r2",
-      rating: 4,
-      text: { text: "Cozy and quiet in the mornings." },
-      authorAttribution: { displayName: "Marco Rossi" },
-      publishTime: iso(8),
-    },
-  ],
-};
-
 const json = (res, status, body) => {
   res.writeHead(status, { "Content-Type": "application/json" });
   res.end(JSON.stringify(body));
@@ -196,7 +111,8 @@ export function handle(req, res, url) {
   const q = url.searchParams;
 
   if (host === "__stage") {
-    stage.set(q.get("app") ?? "", Number(q.get("n") ?? 1));
+    if (q.get("video")) stage.set(q.get("video"), q.get("state") ?? "");
+    else stage.set(q.get("app") ?? "", Number(q.get("n") ?? 1));
     return json(res, 200, { ok: true });
   }
 
@@ -230,42 +146,6 @@ export function handle(req, res, url) {
       return json(res, 200, { results: [{ trackName: q.get("id") === "222222222" ? "Northwind Calendar" : "Northwind Notes" }] });
   }
 
-  if (host === "www.trustpilot.com" && p.startsWith("/review/")) {
-    res.writeHead(200, { "Content-Type": "text/html; charset=utf-8" });
-    res.end(trustpilot(q.get("page") ? [] : TRUSTPILOT_REVIEWS));
-    return true;
-  }
-
-  // G2 answers servers with a bot wall, as the real one does.
-  if (host === "www.g2.com") {
-    res.writeHead(403, { "Content-Type": "text/html" });
-    res.end('<html><head><title>g2.com</title></head><body><p id="cmsg">Please enable JS and disable any ad blocker</p></body></html>');
-    return true;
-  }
-
-  if (host === "www.reddit.com") {
-    if (p.startsWith("/search.json")) {
-      return json(res, 200, {
-        data: {
-          children: [
-            {
-              kind: "t3",
-              data: {
-                id: "men01",
-                title: "Northwind saved my semester",
-                selftext: "Honestly Northwind is the only notes app that stuck.",
-                author: "student_42",
-                permalink: "/r/college/comments/men01/northwind_saved_my_semester/",
-                created_utc: Date.now() / 1000 - 3600,
-              },
-            },
-          ],
-        },
-      });
-    }
-    if (p.endsWith("/.json")) return json(res, 200, REDDIT_THREAD);
-  }
-
   if (host === "hn.algolia.com") {
     if (p === "/api/v1/items/4242") return json(res, 200, HN_ITEM);
     if (p === "/api/v1/search_by_date") {
@@ -278,6 +158,13 @@ export function handle(req, res, url) {
             story_title: "Ask HN: Favorite notes app?",
             created_at: new Date(Date.now() - 1800_000).toISOString(),
           },
+          {
+            objectID: "5153",
+            author: "night_owl",
+            title: "Show HN: Northwind saved my semester",
+            story_text: "<p>Honestly Northwind is the only notes app that stuck.</p>",
+            created_at: new Date(Date.now() - 3600_000).toISOString(),
+          },
           // Matches loosely but doesn't contain the keyword: ignored.
           { objectID: "5152", author: "other", comment_text: "<p>Unrelated</p>", created_at: new Date().toISOString() },
         ],
@@ -285,15 +172,11 @@ export function handle(req, res, url) {
     }
   }
 
-  if (host === "places.googleapis.com") {
-    if (req.headers["x-goog-api-key"] !== "test-google-key") return json(res, 403, { error: { status: "PERMISSION_DENIED" } });
-    if (p === "/v1/places:searchText" && req.method === "POST") return json(res, 200, { places: [{ id: GOOGLE_PLACE.id }] });
-    if (p === `/v1/places/${GOOGLE_PLACE.id}`) return json(res, 200, GOOGLE_PLACE);
-  }
-
   if (host === "www.youtube.com" && p === "/oembed") {
+    const video = (q.get("url") ?? "").match(/v=([\w-]{11})/)?.[1] ?? "";
+    if (stage.get(video) === "gone") return json(res, 404, {});
     return json(res, 200, {
-      title: "Northwind in 60 seconds",
+      title: stage.get(video) === "renamed" ? "Northwind in 59 seconds" : "Northwind in 60 seconds",
       author_name: "Desk Setups",
       author_url: "https://www.youtube.com/@desksetups",
       thumbnail_url: "https://i.ytimg.com/vi/mockvideo01/hqdefault.jpg",

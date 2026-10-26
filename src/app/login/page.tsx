@@ -11,7 +11,7 @@ import { LoginForm } from "./login-form";
 export const metadata: Metadata = { title: "Sign in", robots: { index: false } };
 
 export default async function LoginPage(props: PageProps<"/login">) {
-  const { next, email } = await props.searchParams;
+  const { next, email, error } = await props.searchParams;
   const target = safeNext(next);
   if (await currentUser()) redirect(target);
   return (
@@ -25,6 +25,7 @@ export default async function LoginPage(props: PageProps<"/login">) {
         google={oauth.google}
         // Invite links pass the invited address.
         defaultEmail={typeof email === "string" ? email.slice(0, 254) : ""}
+        socialFailed={Boolean(error)}
       />
       {legalEnabled() && (
         <p className="mt-8 max-w-[340px] text-center text-[13px] leading-relaxed text-balance text-muted">

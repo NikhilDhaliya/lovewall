@@ -4,8 +4,9 @@ import { nextCookies } from "better-auth/next-js";
 import { emailOTP } from "better-auth/plugins";
 import { pool } from "@/lib/db";
 import { codeMail, sendMail } from "@/lib/mail";
-import { withHashedIp, withoutTokens } from "@/lib/auth-privacy";
-import { hashIp, ipHeaderNames } from "@/lib/ip";
+import { ACCOUNT_LINKING, signUpAllowed, withHashedIp, withoutTokens } from "@/lib/auth-privacy";
+import { CLIENT_IP_HEADER } from "@/lib/client-ip";
+import { hashIp } from "@/lib/ip";
 import { rateLimit } from "@/lib/rate-limit";
 
 const production = process.env.NODE_ENV === "production";
@@ -38,7 +39,7 @@ export const auth = betterAuth({
   },
   account: {
     modelName: "auth_accounts",
-    accountLinking: { enabled: true, trustedProviders: ["github", "google", "email-otp"] },
+    accountLinking: ACCOUNT_LINKING,
   },
   verification: { modelName: "auth_verifications" },
   emailAndPassword: { enabled: false },
@@ -61,6 +62,9 @@ export const auth = betterAuth({
     },
   },
   databaseHooks: {
+    user: {
+      create: { before: async (user) => (signUpAllowed(user) ? undefined : false) },
+    },
     session: {
       create: { before: async (session) => ({ data: withHashedIp(session, hashIp) }) },
       update: { before: async (session) => ("ipAddress" in session ? { data: withHashedIp(session, hashIp) } : undefined) },
@@ -75,7 +79,9 @@ export const auth = betterAuth({
     useSecureCookies: secure,
     defaultCookieAttributes: { httpOnly: true, sameSite: "lax", secure },
     database: { generateId: () => crypto.randomUUID() },
-    ipAddress: { ipAddressHeaders: ipHeaderNames() },
+    // One header, filled by Lovewall from the trusted source and never by the client (src/lib/ip.ts withClientIp), so
+    // Better Auth's limits count the same address as the app's.
+    ipAddress: { ipAddressHeaders: [CLIENT_IP_HEADER] },
   },
   plugins: [
     emailOTP({

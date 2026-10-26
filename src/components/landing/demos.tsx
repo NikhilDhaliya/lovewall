@@ -31,7 +31,7 @@ export function BrowserFrame({ url, className, children }: { url: string; classN
 export function MiniForm() {
   const [rating, setRating] = useState<number | null>(5);
   return (
-    <BrowserFrame url="lovewall.tech/northwind" className="mx-auto w-full max-w-[400px]">
+    <BrowserFrame url="northwind.com/love/say-thanks" className="mx-auto w-full max-w-[400px]">
       <div className="p-5 sm:p-6">
         <p className="text-[13px] text-muted">Northwind</p>
         <p className="mt-0.5 font-display text-[19px] leading-snug font-medium">What do you love about Northwind?</p>

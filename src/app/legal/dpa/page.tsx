@@ -1,4 +1,3 @@
-// Lawyer review: a lawyer should review this page before launch. Operator values live in src/lib/legal/config.ts.
 import type { Metadata } from "next";
 import { A, Doc, Mail, Ol, P, Section, Table, Ul } from "@/components/legal/doc";
 import { LEGAL } from "@/lib/legal/config";
@@ -101,24 +100,25 @@ export default function DpaPage() {
 
       <Section title="5. Subprocessors">
         <P>
-          The Controller gives general authorisation for the subprocessors on the <A href="/legal/subprocessors">Subprocessors</A> page. The
-          Processor has a written contract with each one imposing data protection obligations no weaker than these, and stays responsible
-          for them. Before adding or replacing a subprocessor, the Processor emails account holders at least 30 days in advance (or updates
-          the page and emails those who subscribed to changes there). The Controller may object on reasonable data protection grounds within
-          those 30 days; if the Processor cannot address the objection, the Controller may end the service and receives a refund of any
-          prepaid, unused period.
+          The Controller gives general authorisation for the subprocessors on the <A href="/legal/subprocessors">Subprocessors</A> page.
+          Each one processes data under its own data processing terms, which impose data protection obligations no weaker than these, and
+          the Processor stays responsible for them. Before adding or replacing a subprocessor, the Processor emails account holders at least
+          30 days in advance (or updates the page and emails those who subscribed to changes there). The Controller may object on reasonable
+          data protection grounds within those 30 days; if the Processor cannot address the objection, the Controller may end the service
+          and receives a refund of any prepaid, unused period.
         </P>
       </Section>
 
       <Section title="6. International transfers">
         <P>
-          The Processor is in India and its subprocessors are in the countries listed on the Subprocessors page. For transfers of Customer
+          The Processor is in India and its subprocessors are in the locations listed on the Subprocessors page. For transfers of Customer
           Data from the EEA to the Processor or to a country without an adequacy decision, the parties agree to the Standard Contractual
           Clauses adopted by Commission Implementing Decision (EU) 2021/914, Module Two (controller to processor), which are incorporated by
-          reference, with these choices: Clause 7 (docking) included; Clause 9(a) Option 2 (general authorisation, 30 days); Clause 11
-          optional language not included; Clause 13 and Annex I.C: the supervisory authority of the Controller’s member state; Clause 17:
-          the law of Ireland; Clause 18: the courts of Ireland. Annex I is section 2 of this agreement with the parties’ details from the
-          account; Annex II is Annex 2 below; Annex III is the Subprocessors page.
+          reference; onward transfers to subprocessors rest on the clauses in their data processing terms. The choices for this agreement:
+          Clause 7 (docking) included; Clause 9(a) Option 2 (general authorisation, 30 days); Clause 11 optional language not included;
+          Clause 13 and Annex I.C: the supervisory authority of the Controller’s member state; Clause 17: the law of Ireland; Clause 18: the
+          courts of Ireland. Annex I is section 2 of this agreement with the parties’ details from the account; Annex II is Annex 2 below;
+          Annex III is the Subprocessors page.
         </P>
         <P>
           For transfers from the UK, the UK International Data Transfer Addendum (version B1.0) to the EU SCCs applies, with the tables
@@ -193,7 +193,8 @@ export default function DpaPage() {
             single-operator business and does not hold its own certification.
           </li>
           <li>
-            Open-source code, so anyone can audit it; a responsible disclosure process at <Mail address={contact.security} />.
+            Open-source code, so anyone can audit it; a responsible disclosure process (contact: <Mail address={contact.security} />
+            ).
           </li>
           <li>Backups by the database provider; deletion propagates within the periods on this page.</li>
           <li>Minimal data: no analytics trackers, no advertising, no cookies beyond the session.</li>

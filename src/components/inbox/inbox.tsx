@@ -38,7 +38,7 @@ import type { InboxFilters, OwnerTestimonial } from "@/lib/data/testimonials";
 import { answerText, NPS_REASON_ID, NPS_SCORE_ID } from "@/lib/forms";
 import type { Status } from "@/lib/types";
 import { EditSheet, type EditPreset } from "./edit-sheet";
-import { ImportSheet, type ImportKeys } from "./import-sheet";
+import { ImportSheet } from "./import-sheet";
 import { InboxItem, type ItemDetails } from "./item";
 import { ReplySheet } from "./reply-sheet";
 import { TagsSheet } from "./tags-sheet";
@@ -86,7 +86,6 @@ export function Inbox({
   collectUrl,
   initial,
   forms = [],
-  importKeys,
   ai,
   notice,
   canExport = true,
@@ -95,7 +94,6 @@ export function Inbox({
   collectUrl: string;
   initial: { filters: InboxFilters; items: OwnerTestimonial[]; next: string | null; meta: Meta };
   forms?: FormMeta[];
-  importKeys: ImportKeys;
   // Which AI keys the server has (nothing AI shows without them).
   ai?: { text: boolean; speech: boolean };
   // Shown above the list (the report queue). Export is for the space's owner.
@@ -736,6 +734,7 @@ export function Inbox({
         preset={preset}
         details={editing ? detailsOf(editing, formById, space.id) : undefined}
         readText={Boolean(ai?.text)}
+        translations={Boolean(ai?.text)}
       />
       <ReplySheet
         spaceId={space.id}
@@ -750,7 +749,6 @@ export function Inbox({
         spaceId={space.id}
         open={importOpen}
         onOpenChange={setImportOpen}
-        keys={importKeys}
         onPaste={(p) => {
           setImportOpen(false);
           setEditing(null);

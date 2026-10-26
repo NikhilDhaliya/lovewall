@@ -6,7 +6,7 @@ import { fail, firstIssue, guard, ok, type Result } from "@/lib/actions";
 import { one, q } from "@/lib/db";
 import { getForm } from "@/lib/data/forms";
 import { getOwnedSpace } from "@/lib/data/spaces";
-import { sendInvites, sentToday } from "@/lib/invites";
+import { inviteQuota, sendInvites } from "@/lib/invites";
 import { flushOne } from "@/lib/outbox";
 import { rateLimit } from "@/lib/rate-limit";
 import { audit } from "@/lib/privacy";
@@ -24,7 +24,15 @@ const schema = z.object({
   days: z.number().int().min(1).max(30),
 });
 
-export type InviteResult = { sent: number; unsubscribed: number; duplicates: number; invalid: number; overLimit: number; today: number };
+export type InviteResult = {
+  sent: number;
+  unsubscribed: number;
+  duplicates: number;
+  invalid: number;
+  overLimit: number;
+  today: number;
+  max: number;
+};
 
 // Sends testimonial requests by email, from the space's name, with Reply-To set to the signed-in user.
 export async function sendInviteBatch(spaceId: string, input: z.input<typeof schema>): Promise<Result<InviteResult>> {
@@ -39,6 +47,7 @@ export async function sendInviteBatch(spaceId: string, input: z.input<typeof sch
     const form = await getForm(spaceId, parsed.data.formId);
     if (!form) return fail("Pick a form");
     const address = await one<{ business_address: string | null }>("select business_address from spaces where id = $1", [spaceId]);
+    const quota = await inviteQuota(space);
     const report = await sendInvites({
       space: { ...space, business_address: address?.business_address ?? null },
       form,
@@ -48,6 +57,7 @@ export async function sendInviteBatch(spaceId: string, input: z.input<typeof sch
       reminders: parsed.data.reminders,
       days: parsed.data.days,
       replyTo: user.email,
+      room: quota.max - quota.today,
     });
     after(async () => {
       for (const id of report.outbox) await flushOne(id).catch(() => {});
@@ -55,11 +65,12 @@ export async function sendInviteBatch(spaceId: string, input: z.input<typeof sch
     await audit({ spaceId, actorId: user.id, action: "invites.send", detail: { sent: report.sent } });
     const { outbox: _outbox, ...counts } = report;
     void _outbox;
-    return ok({ ...counts, today: await sentToday(spaceId) });
+    return ok({ ...counts, ...(await inviteQuota(space)) });
   });
 }
 
-// The postal address shown in the footer of invite emails (anti-spam laws ask for one in commercial mail).
+// The space's mailing address (Settings), shown in the footer of invite emails: anti-spam laws such as CAN-SPAM ask
+// for the sender's postal address in commercial mail.
 export async function saveBusinessAddress(spaceId: string, input: string): Promise<Result<{ address: string }>> {
   return guard(async () => {
     const user = await actionUser();

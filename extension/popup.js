@@ -81,7 +81,7 @@
 
   async function init() {
     settings = await A.getSettings();
-    if (!settings.apiKey) return show("setup");
+    if (!settings.apiKey || !settings.appUrl) return show("setup");
     $("space").textContent = settings.spaceName;
     draft = await loadDraft();
     fill(draft.fields);
@@ -185,7 +185,7 @@
     if (saving) return;
     onEdit();
     var f = draft.fields;
-    var body = { name: P.line(f.name, P.MAX.name), text: P.text(f.text), status: "approved" };
+    var body = { name: P.line(f.name, P.MAX.name), text: P.text(f.text), status: settings.autoApprove ? "approved" : "new" };
     if (!body.text) return invalid("text", "Add the text");
     if (!body.name) return invalid("name", "Add a name");
     var title = P.line(f.title, P.MAX.title);

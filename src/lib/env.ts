@@ -78,19 +78,6 @@ export const polarEnv = {
   },
 };
 
-// Optional keys for imports. A source whose key is missing is hidden. Server only: never sent to browsers.
-export const importKeys = {
-  get google() {
-    return process.env.GOOGLE_PLACES_API_KEY?.trim() || "";
-  },
-  get yelp() {
-    return process.env.YELP_API_KEY?.trim() || "";
-  },
-  get youtube() {
-    return process.env.YOUTUBE_API_KEY?.trim() || "";
-  },
-};
-
 // AI: Claude for text and images, Deepgram for video transcripts. Each feature hides when its key is missing. Hosted
 // uses our keys; self-hosters bring their own. Server only: never sent to browsers.
 export const aiEnv = {

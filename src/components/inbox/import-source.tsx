@@ -1,6 +1,6 @@
 "use client";
 
-import { ImagePlus, Loader2, PenLine } from "lucide-react";
+import { Loader2 } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import { findReviews, importFound, type Preview, type PreviewItem } from "@/app/actions/import";
@@ -15,13 +15,7 @@ import type { Source } from "@/lib/sources";
 import { formatDate } from "@/lib/widget/render";
 import { Checkbox, OptionRow, plural, StatusChoice, StepFooter } from "./import-parts";
 
-type Ready = Extract<Preview, { status: "ok" }>;
-type Phase =
-  | { kind: "idle" }
-  | { kind: "loading" }
-  | { kind: "error"; message: string }
-  | { kind: "blocked"; site: string }
-  | { kind: "ready"; preview: Ready };
+type Phase = { kind: "idle" } | { kind: "loading" } | { kind: "error"; message: string } | { kind: "ready"; preview: Preview };
 
 const AUTO = [
   { value: "off", label: "Off" },
@@ -30,29 +24,24 @@ const AUTO = [
   { value: "3", label: "3 stars and up" },
 ];
 
-function initialPick(p: Ready): Set<string> {
+function initialPick(p: Preview): Set<string> {
   const fresh = p.items.filter((i) => !i.exists);
   if (p.pick === "none") return new Set();
   if (p.pick === "first") return new Set(fresh.slice(0, 1).map((i) => i.url));
   return new Set(fresh.map((i) => i.url));
 }
 
-// One source: its link (or search), a preview of what's there with checkboxes, then import. Sites that refuse our
-// server get the paste and screenshot routes instead.
+// One source: its link, a preview of what's there with checkboxes, then import.
 export function SourceStep({
   spaceId,
   source,
   initialQuery,
   onDone,
-  onPaste,
-  onShots,
 }: {
   spaceId: string;
   source: Source;
   initialQuery: string;
   onDone: () => void;
-  onPaste: (url: string) => void;
-  onShots: () => void;
 }) {
   const [query, setQuery] = useState(initialQuery);
   const [phase, setPhase] = useState<Phase>(initialQuery ? { kind: "loading" } : { kind: "idle" });
@@ -75,7 +64,6 @@ export function SourceStep({
     const res = await findReviews(spaceId, { source: source.id, query: q.trim() });
     if (id !== request.current) return;
     if (!res.ok) return setPhase({ kind: "error", message: res.error });
-    if (res.data.status === "blocked") return setPhase({ kind: "blocked", site: res.data.site });
     setPhase({ kind: "ready", preview: res.data });
     setPicked(initialPick(res.data));
     setSync(res.data.connected);
@@ -120,7 +108,6 @@ export function SourceStep({
   }
 
   const count = fresh.filter((i) => picked.has(i.url)).length;
-  const isGoogle = source.id === "google";
 
   return (
     <div className="flex min-h-full animate-view flex-col">
@@ -138,9 +125,9 @@ export function SourceStep({
             </span>
             <input
               ref={input}
-              aria-label={isGoogle ? "Maps link or business name" : `${source.label} link`}
+              aria-label={`${source.label} link`}
               placeholder={source.example ?? "Link"}
-              inputMode={isGoogle ? "text" : "url"}
+              inputMode="url"
               value={query}
               onChange={(e) => setQuery(e.target.value)}
               className={cn(inputClass, "pl-9")}
@@ -170,21 +157,6 @@ export function SourceStep({
                 </div>
               </div>
             ))}
-          </div>
-        )}
-
-        {phase.kind === "blocked" && (
-          <div className="animate-view rounded-[12px] px-5 py-6 text-center ring-1 ring-line" role="status">
-            <p className="text-[15px] font-medium">{phase.site} blocks our server</p>
-            <p className="mt-1 text-[13.5px] text-muted">Paste it, or upload a screenshot.</p>
-            <div className="mt-4 flex flex-wrap justify-center gap-2">
-              <Button variant="secondary" size="sm" onClick={() => onPaste(query.trim())}>
-                <PenLine className="size-4" /> Paste
-              </Button>
-              <Button variant="secondary" size="sm" onClick={onShots}>
-                <ImagePlus className="size-4" /> Screenshot
-              </Button>
-            </div>
           </div>
         )}
 

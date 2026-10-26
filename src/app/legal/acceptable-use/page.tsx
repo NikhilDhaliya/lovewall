@@ -26,7 +26,9 @@ export default function AcceptableUsePage() {
           </li>
           <li>
             pay or reward people for a testimonial on the condition that it is positive or says particular things. A reward for leaving
-            honest feedback, whatever it says, is allowed if the testimonial discloses it; the rewards feature does this for you;
+            honest feedback, whatever it says, is allowed if the testimonial discloses it: a testimonial whose author claimed a reward
+            through the rewards feature carries a “Got a reward for this review” line in widgets, on wall pages and in the public API, and
+            it cannot be switched off;
           </li>
           <li>edit a testimonial so it says something the author did not say. Fixing typos and shortening with “…” is fine;</li>
           <li>show only your good reviews while claiming the display is complete or representative;</li>
@@ -37,10 +39,11 @@ export default function AcceptableUsePage() {
 
       <Section title="Imports">
         <P>
-          When you import a review from another site (X, LinkedIn, Google, G2, Trustpilot, Product Hunt and the rest) or paste one by hand,
-          you confirm that you have the right to republish it, that it is reproduced accurately with the author’s name and a link to the
-          original, and that you will remove it if the author or the source asks. Don’t import reviews about a different product and present
-          them as yours.
+          When you bring a review in from another site, whether the service fetched it through that site’s official API or feed, you
+          uploaded the site’s export file, pasted it, took a screenshot or used the browser extension, you confirm that you have the right
+          to republish it under that site’s terms, that it is reproduced accurately with the author’s name and a link to the original, and
+          that you will remove it if the author or the source asks. Don’t import reviews about a different product and present them as
+          yours.
         </P>
       </Section>
 

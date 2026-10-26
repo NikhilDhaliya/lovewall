@@ -4,6 +4,7 @@ import { Check, Loader2 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
+import { saveBusinessAddress } from "@/app/actions/invites";
 import { leaveSpace } from "@/app/actions/members";
 import { checkSlug, deleteSpace, updateSpace } from "@/app/actions/spaces";
 import { Page, PageHeader, useShell } from "@/components/app/shell";
@@ -13,7 +14,16 @@ import { cn } from "@/lib/cn";
 import { Group, GroupRow, rowInputClass } from "./grouped";
 import { MembersSettings } from "./members-settings";
 
-type Space = { id: string; name: string; slug: string; website: string | null; brandColor: string; notify: boolean };
+type Space = {
+  id: string;
+  name: string;
+  slug: string;
+  website: string | null;
+  brandColor: string;
+  notify: boolean;
+  // Printed in the footer of invite emails (anti-spam laws ask for the sender's postal address).
+  address: string;
+};
 
 // One calm list: the space and its link (`domain` goes right after it), who works on it, then what it sends and
 // connects to (`children`: notifications' chat hooks, webhooks, API keys, AI, activity), and "Delete space" last.
@@ -40,6 +50,7 @@ export function SpaceSettings({
   const [website, setWebsite] = useState(space.website ?? "");
   const [color, setColor] = useState(space.brandColor);
   const [notify, setNotify] = useState(space.notify);
+  const [address, setAddress] = useState(space.address);
   const saved = useRef({ ...space, website: space.website ?? "" });
   const [savedSlug, setSavedSlug] = useState(space.slug);
 
@@ -128,6 +139,25 @@ export function SpaceSettings({
                 if (await save({ website })) saved.current.website = website;
               }}
               className={rowInputClass}
+            />
+          </GroupRow>
+          <GroupRow label="Mailing address" htmlFor="address" className="items-start [&>label]:pt-[9px]">
+            <textarea
+              id="address"
+              rows={1}
+              placeholder="Optional"
+              value={address}
+              maxLength={300}
+              onChange={(e) => setAddress(e.target.value)}
+              onBlur={async () => {
+                if (address === saved.current.address) return;
+                const res = await saveBusinessAddress(space.id, address);
+                if (!res.ok) return toast.error(res.error);
+                saved.current.address = res.data.address;
+                setAddress(res.data.address);
+                toast.success("Saved");
+              }}
+              className={cn(rowInputClass, "[field-sizing:content] h-auto min-h-10 max-w-[300px] resize-none py-2.5 leading-snug")}
             />
           </GroupRow>
           <GroupRow label="Brand colour" htmlFor="color">

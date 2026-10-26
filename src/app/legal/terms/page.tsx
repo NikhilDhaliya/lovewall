@@ -1,12 +1,12 @@
-// Lawyer review: a lawyer should review this page before launch. Operator values live in src/lib/legal/config.ts.
 import type { Metadata } from "next";
-import { A, Doc, Mail, Ol, OwnerNote, P, Section, Ul } from "@/components/legal/doc";
-import { courtsText, LEGAL } from "@/lib/legal/config";
+import { A, Doc, Mail, Ol, P, Section, Ul } from "@/components/legal/doc";
+import { courtsText, LEGAL, serviceHost } from "@/lib/legal/config";
 
 export const metadata: Metadata = { title: "Terms of Service" };
 
 export default function TermsPage() {
-  const { product, operator, domain, contact, plan, changeNoticeDays, liabilityFloorUsd, minimumAge, retention } = LEGAL;
+  const { product, operator, contact, plan, changeNoticeDays, liabilityFloorUsd, minimumAge, retention } = LEGAL;
+  const domain = serviceHost();
   return (
     <Doc
       title="Terms of Service"
@@ -30,8 +30,8 @@ export default function TermsPage() {
           <li>You must be at least {minimumAge} years old.</li>
           <li>Give a real email address. We use it to sign you in and to tell you about your account.</li>
           <li>
-            Sign-in codes and links are yours to protect. Tell us at once at <Mail address={contact.security} /> if you think someone else
-            used them.
+            Sign-in codes and links are yours to protect. Tell us at once if you think someone else used them; contact:{" "}
+            <Mail address={contact.security} />.
           </li>
           <li>If you add team members to a space, they act on your behalf inside that space. You are responsible for what they do.</li>
         </Ul>
@@ -102,8 +102,8 @@ export default function TermsPage() {
       <Section title="6. Open source and our name">
         <P>
           The service runs the public {product} source code, licensed under the AGPL-3.0. The licence lets you use, change and run that
-          code, including to run your own service. It does not cover the {product} name and logo, which belong to {operator}; please don’t
-          present your own service as ours.
+          code, including to run your own service. It covers the code, not the {product} name and logo: you may say that your service runs
+          {product}, but please don’t present it as ours or as endorsed by us.
         </P>
       </Section>
 
@@ -214,7 +214,6 @@ export default function TermsPage() {
         <P>
           Before going to court, write to <Mail address={contact.legal} />. We will try to sort it out with you within 30 days.
         </P>
-        {!LEGAL.jurisdiction.city && <OwnerNote>Owner: set the city in config.ts (jurisdiction.city) before launch.</OwnerNote>}
       </Section>
 
       <Section title="16. General">

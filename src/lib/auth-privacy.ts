@@ -14,3 +14,13 @@ export function withHashedIp<T extends { ipAddress?: string | null }>(session: T
   const ip = session.ipAddress?.trim();
   return { ...session, ipAddress: ip ? hash(ip) : null };
 }
+
+// New accounts start only from an address someone has proven: the email code proves it, and GitHub or Google must
+// report it verified. Otherwise an account made with someone else's unverified address would be waiting for them.
+export function signUpAllowed(user: { emailVerified?: boolean | null }): boolean {
+  return user.emailVerified === true;
+}
+
+// A GitHub or Google sign-in joins an existing account only when the provider verified that email (no provider is
+// trusted blindly), and only an account whose own address was proven by a code.
+export const ACCOUNT_LINKING = { enabled: true, trustedProviders: [] as string[], requireLocalEmailVerified: true };

@@ -1,9 +1,10 @@
 "use client";
 
 import { Building2, Camera, ImagePlus, Loader2, X } from "lucide-react";
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
-import { readImageText } from "@/app/actions/ai";
+import { listTranslations, readImageText } from "@/app/actions/ai";
+import { TranslationList } from "@/components/ai/translation-list";
 import { addTestimonial, updateTestimonial, type TestimonialInput } from "@/app/actions/testimonials";
 import { Avatar } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
@@ -12,6 +13,7 @@ import { Segmented } from "@/components/ui/segmented";
 import { Sheet } from "@/components/ui/sheet";
 import { StarInput } from "@/components/ui/stars";
 import { cn } from "@/lib/cn";
+import type { Translation } from "@/lib/ai/translate";
 import type { OwnerTestimonial } from "@/lib/data/testimonials";
 import { resizeImage, resizeLogo } from "@/lib/media";
 import { AnswerList, type ItemDetails } from "./item";
@@ -90,6 +92,7 @@ export function EditSheet({
   onSaved,
   details,
   readText = false,
+  translations = false,
 }: {
   spaceId: string;
   editing: OwnerTestimonial | null;
@@ -100,6 +103,8 @@ export function EditSheet({
   details?: ItemDetails;
   // AI: offer to fill name, text and stars from a saved screenshot.
   readText?: boolean;
+  // AI: list the testimonial's translations, to approve or discard.
+  translations?: boolean;
 }) {
   const [draft, setDraft] = useState<Draft>(() => draftOf(editing, preset));
   const [reading, setReading] = useState(false);
@@ -108,6 +113,20 @@ export function EditSheet({
   const photoInput = useRef<HTMLInputElement>(null);
   const shotInput = useRef<HTMLInputElement>(null);
   const logoInput = useRef<HTMLInputElement>(null);
+  const [translated, setTranslated] = useState<{ id: string; list: Translation[] } | null>(null);
+  const editingId = open && translations ? (editing?.id ?? null) : null;
+
+  useEffect(() => {
+    if (!editingId) return;
+    let live = true;
+    void listTranslations(spaceId, editingId).then((res) => {
+      if (live && res.ok) setTranslated({ id: editingId, list: res.data });
+    });
+    return () => {
+      live = false;
+    };
+  }, [spaceId, editingId]);
+  const translationList = editingId && translated?.id === editingId ? translated.list : [];
 
   // Reset the form each time the sheet opens (or switches to another testimonial).
   if (seen.open !== open || seen.id !== (editing?.id ?? null)) {
@@ -439,6 +458,16 @@ export function EditSheet({
             { value: "hidden", label: "Hidden" },
           ]}
         />
+        {editing && translationList.length > 0 && (
+          <Field label="Translations">
+            <TranslationList
+              spaceId={spaceId}
+              testimonialId={editing.id}
+              list={translationList}
+              onChange={(list) => setTranslated({ id: editing.id, list })}
+            />
+          </Field>
+        )}
         {editing && <ConsentRecord t={editing} />}
         <button type="submit" className="hidden" />
       </form>
